@@ -215,7 +215,7 @@ const CHAPTERS = [
   { skyTop: "#fdf6e8", skyBot: "#cfe7e4", fog: ["#cfe7e4", 0.01], far: "#b9cdc6", mid: "#7d9a90", near: "#4c6660",
     volcano: 0.16, volcanoC: "#5e6a66", plume: 0.25, glow: 0, jungle: 0, sand: 1, water: 0.95, foam: 0.55,
     birds: 0.45, stars: 0, motes: ["#ffffff", 0.22], night: true,
-    caption: "Black sand. White water. No footprints.", whisper: "Tap the water." },
+    caption: "Black sand. White water. No footprints.", whisper: "The water answers every touch." },
   { skyTop: "#0a0f24", skyBot: "#1b2340", fog: ["#1b2340", 0.028], far: "#232c4e", mid: "#1d2542", near: "#161c33",
     volcano: 0.4, volcanoC: "#20263f", plume: 0.2, glow: 0.75, jungle: 0, sand: 0, water: 0.35, foam: 0.18,
     birds: 1, stars: 1, motes: ["#d8d2c0", 0.4], night: true,
@@ -237,7 +237,8 @@ const caption = document.getElementById("caption");
 const whisper = document.getElementById("whisper");
 const chrome = [...document.querySelectorAll(".chrome")];
 const dots = [...document.querySelectorAll(".dot")];
-let idleTimer, whisperTimer;
+let idleTimer, whisperTimer, shoreCueTimer, shoreCueFirst;
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 function wakeChrome() {
   chrome.forEach((c) => c.classList.remove("idle"));
   clearTimeout(idleTimer);
@@ -258,6 +259,11 @@ function setChapter(i) {
   dots.forEach((d, j) => d.classList.toggle("active", j === i));
   caption.classList.remove("show"); whisper.classList.remove("show");
   clearTimeout(whisperTimer);
+  clearTimeout(shoreCueFirst); clearInterval(shoreCueTimer);
+  if (i === 2 && !reduceMotion) {
+    shoreCueFirst = setTimeout(() => ripple(-3 + Math.random() * 6, 0.1 + Math.random() * 0.7), 2400);
+    shoreCueTimer = setInterval(() => ripple(-6 + Math.random() * 12, 0.0 + Math.random() * 1.2), 5200);
+  }
   setTimeout(() => { caption.textContent = c.caption; caption.classList.add("show"); }, 1100);
   whisperTimer = setTimeout(() => { whisper.textContent = c.whisper; whisper.classList.add("show"); }, 3200);
   wakeChrome();
@@ -289,9 +295,10 @@ let camX = 0, camY = 0;
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
+  const tA = reduceMotion ? 0 : t;
 
-  camX = lerp(camX, px * 1.1, 1 - Math.exp(-3.2 * dt));
-  camY = lerp(camY, -py * 0.5, 1 - Math.exp(-3.2 * dt));
+  camX = lerp(camX, reduceMotion ? 0 : px * 1.1, 1 - Math.exp(-3.2 * dt));
+  camY = lerp(camY, reduceMotion ? 0 : -py * 0.5, 1 - Math.exp(-3.2 * dt));
   camera.position.x = camX; camera.position.y = camY + 0.4;
   camera.lookAt(camX * 0.4, camY * 0.3 + 0.6, -20);
 
@@ -315,11 +322,11 @@ function tick() {
   starMat.opacity = lerp(starMat.opacity, target.stars, k);
   birdMat.opacity = lerp(birdMat.opacity, target.birds, k);
   moteMat.opacity = lerp(moteMat.opacity, target.motesO, k);
-  glowMat.opacity = lerp(glowMat.opacity, target.glow * (0.7 + Math.sin(t * 2.1) * 0.3), k);
+  glowMat.opacity = lerp(glowMat.opacity, target.glow * (0.7 + Math.sin(tA * 2.1) * 0.3), k);
 
   /* steam plume: rise, drift with wind, fade, loop */
   for (const p of plume) {
-    const life = (t * 0.09 * p.drift + p.phase) % 1;
+    const life = (tA * 0.09 * p.drift + p.phase) % 1;
     p.m.position.set(life * 7.5, 8.2 + life * 6.5, -43.7);
     const s = 0.4 + life * 2.6;
     p.m.scale.setScalar(s);
@@ -327,30 +334,32 @@ function tick() {
   }
 
   /* foam lines breathe in and out */
-  foam1.position.x = Math.sin(t * 0.5) * 3;
-  foam2.position.x = Math.sin(t * 0.5 + 2.1) * 4;
-  foam3.position.x = Math.sin(t * 0.45 + 4.2) * 5;
-  foam1.position.y = Math.sin(t * 0.8) * 0.25;
-  foam2.position.y = Math.sin(t * 0.7 + 1.4) * 0.2;
+  foam1.position.x = Math.sin(tA * 0.5) * 3;
+  foam2.position.x = Math.sin(tA * 0.5 + 2.1) * 4;
+  foam3.position.x = Math.sin(tA * 0.45 + 4.2) * 5;
+  foam1.position.y = Math.sin(tA * 0.8) * 0.25;
+  foam2.position.y = Math.sin(tA * 0.7 + 1.4) * 0.2;
 
   /* birds wheel */
   for (const b of birds) {
-    const a = t * b.speed + b.phase;
+    const a = tA * b.speed + b.phase;
     const x = b.cx + Math.cos(a) * b.r;
     const y = b.cy + Math.sin(a * 0.9) * b.r * 0.32;
     b.m.position.set(x, y, -30);
     b.m.rotation.z = Math.cos(a) * 0.35;
-    const flap = 1 + Math.sin(t * b.flap + b.phase) * 0.28;
+    const flap = 1 + Math.sin(tA * b.flap + b.phase) * 0.28;
     b.m.scale.set(0.62, 0.62 * flap, 1);
   }
 
-  const pos = moteGeo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    let x = pos.getX(i) + dt * (0.35 + (i % 5) * 0.08);
-    if (x > 46) x = -46;
-    pos.setX(i, x);
+  if (!reduceMotion) {
+    const pos = moteGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      let x = pos.getX(i) + dt * (0.35 + (i % 5) * 0.08);
+      if (x > 46) x = -46;
+      pos.setX(i, x);
+    }
+    pos.needsUpdate = true;
   }
-  pos.needsUpdate = true;
 
   for (let i = ripples.length - 1; i >= 0; i--) {
     const r = ripples[i];
