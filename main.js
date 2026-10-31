@@ -270,16 +270,64 @@ function setChapter(i) {
 }
 dots.forEach((d, i) => d.addEventListener("click", () => setChapter(i)));
 
+/* ---------- dock gestures: swipe to change face, arrows to step ---------- */
+const dock = document.getElementById("dock");
+let dockDownX = 0, dockDownY = 0, dockSwiping = false, dockGestureId = null, suppressDockClick = false;
+dock.addEventListener("pointerdown", (e) => {
+  dockDownX = e.clientX; dockDownY = e.clientY; dockSwiping = false; dockGestureId = e.pointerId;
+});
+dock.addEventListener("pointermove", (e) => {
+  if (dockGestureId !== e.pointerId) return;
+  const dx = e.clientX - dockDownX, dy = e.clientY - dockDownY;
+  if (!dockSwiping && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+    dockSwiping = true;
+    try { dock.setPointerCapture(e.pointerId); } catch (_) {}
+  }
+});
+dock.addEventListener("pointerup", (e) => {
+  if (dockGestureId !== e.pointerId) return;
+  const dx = e.clientX - dockDownX;
+  dockGestureId = null;
+  if (dockSwiping) {
+    suppressDockClick = true;
+    if (dx <= -48) setChapter((chapter + 1) % CHAPTERS.length);
+    else if (dx >= 48) setChapter((chapter + CHAPTERS.length - 1) % CHAPTERS.length);
+  }
+  dockSwiping = false;
+});
+dock.addEventListener("pointercancel", () => { dockGestureId = null; dockSwiping = false; });
+dock.addEventListener("click", (e) => {
+  if (suppressDockClick) { e.preventDefault(); e.stopPropagation(); suppressDockClick = false; }
+}, true);
+dock.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight") {
+    e.preventDefault();
+    setChapter((chapter + 1) % CHAPTERS.length);
+    dots[chapter] && dots[chapter].focus();
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    setChapter((chapter + CHAPTERS.length - 1) % CHAPTERS.length);
+    dots[chapter] && dots[chapter].focus();
+  }
+});
+
 /* ---------- pointer ---------- */
 let px = 0, py = 0, dragging = false, moved = 0, downX = 0, downY = 0;
-addEventListener("pointerdown", (e) => { dragging = true; moved = 0; downX = e.clientX; downY = e.clientY; wakeChrome(); });
+let dockPointer = null;
+addEventListener("pointerdown", (e) => {
+  dragging = true; moved = 0; downX = e.clientX; downY = e.clientY; wakeChrome();
+  dockPointer = e.target.closest && e.target.closest("#dock") ? e.pointerId : null;
+});
 addEventListener("pointermove", (e) => {
   if (dragging) { moved += Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY); }
+  if (dockPointer === e.pointerId) return; // dock gestures never move the scene
   px = (e.clientX / innerWidth) * 2 - 1;
   py = (e.clientY / innerHeight) * 2 - 1;
 });
+addEventListener("pointercancel", (e) => { if (dockPointer === e.pointerId) dockPointer = null; });
 addEventListener("pointerup", (e) => {
   dragging = false;
+  if (dockPointer === e.pointerId) { dockPointer = null; return; } // dock taps never ripple the shore
   if (moved < 12 && chapter === 2 && e.clientY > innerHeight * 0.4 && e.clientY < innerHeight * 0.86) {
     const v = new THREE.Vector3((e.clientX / innerWidth) * 2 - 1, -((e.clientY / innerHeight) * 2 - 1), 0.5).unproject(camera);
     const dir = v.sub(camera.position).normalize();
