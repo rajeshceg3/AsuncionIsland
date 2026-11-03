@@ -215,7 +215,7 @@ const CHAPTERS = [
   { skyTop: "#fdf6e8", skyBot: "#cfe7e4", fog: ["#cfe7e4", 0.01], far: "#b9cdc6", mid: "#7d9a90", near: "#4c6660",
     volcano: 0.16, volcanoC: "#5e6a66", plume: 0.25, glow: 0, jungle: 0, sand: 1, water: 0.95, foam: 0.55,
     birds: 0.45, stars: 0, motes: ["#ffffff", 0.22], night: true,
-    caption: "Black sand. White water. No footprints.", whisper: "The water answers every touch." },
+    caption: "Black sand. White water. No footprints.", whisper: "Every black grain was once mountain." },
   { skyTop: "#0a0f24", skyBot: "#1b2340", fog: ["#1b2340", 0.028], far: "#232c4e", mid: "#1d2542", near: "#161c33",
     volcano: 0.4, volcanoC: "#20263f", plume: 0.2, glow: 0.75, jungle: 0, sand: 0, water: 0.35, foam: 0.18,
     birds: 1, stars: 1, motes: ["#d8d2c0", 0.4], night: true,
@@ -256,7 +256,11 @@ function setChapter(i) {
   target.water = c.water; target.foam = c.foam; target.birds = c.birds;
   target.stars = c.stars; target.motesO = c.motes[1];
   document.body.classList.toggle("night", c.night);
-  dots.forEach((d, j) => d.classList.toggle("active", j === i));
+  dots.forEach((d, j) => {
+    const on = j === i;
+    d.classList.toggle("active", on);
+    if (on) d.setAttribute("aria-current", "true"); else d.removeAttribute("aria-current");
+  });
   caption.classList.remove("show"); whisper.classList.remove("show");
   clearTimeout(whisperTimer);
   clearTimeout(shoreCueFirst); clearInterval(shoreCueTimer);
@@ -428,6 +432,7 @@ tick();
 setTimeout(() => {
   veil.classList.add("gone");
   dots[0].classList.add("active");
+  dots[0].setAttribute("aria-current", "true");
   caption.textContent = CHAPTERS[0].caption;
   setTimeout(() => caption.classList.add("show"), 900);
   whisper.textContent = CHAPTERS[0].whisper;
