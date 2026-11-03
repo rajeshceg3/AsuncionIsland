@@ -116,3 +116,7 @@ body.night .dot.active { background: rgba(236, 231, 218, 0.14); }
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
+
+/* the masthead sits over the sky; on a bright-sky night-ink chapter (the
+   black-sand shore) it keeps dark ink even though the caption needs light */
+body.night.bright-sky .wordmark-small { color: #2e2718; }

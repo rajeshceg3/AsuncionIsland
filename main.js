@@ -214,7 +214,7 @@ const CHAPTERS = [
     caption: "The jungle keeps what the rain gives.", whisper: "Green on green on green." },
   { skyTop: "#fdf6e8", skyBot: "#cfe7e4", fog: ["#cfe7e4", 0.01], far: "#b9cdc6", mid: "#7d9a90", near: "#4c6660",
     volcano: 0.16, volcanoC: "#5e6a66", plume: 0.25, glow: 0, jungle: 0, sand: 1, water: 0.95, foam: 0.55,
-    birds: 0.45, stars: 0, motes: ["#ffffff", 0.22], night: true,
+    birds: 0.45, stars: 0, motes: ["#ffffff", 0.22], night: true, brightSky: true,
     caption: "Black sand. White water. No footprints.", whisper: "Every black grain was once mountain." },
   { skyTop: "#0a0f24", skyBot: "#1b2340", fog: ["#1b2340", 0.028], far: "#232c4e", mid: "#1d2542", near: "#161c33",
     volcano: 0.4, volcanoC: "#20263f", plume: 0.2, glow: 0.75, jungle: 0, sand: 0, water: 0.35, foam: 0.18,
@@ -256,6 +256,7 @@ function setChapter(i) {
   target.water = c.water; target.foam = c.foam; target.birds = c.birds;
   target.stars = c.stars; target.motesO = c.motes[1];
   document.body.classList.toggle("night", c.night);
+  document.body.classList.toggle("bright-sky", !!c.brightSky);
   dots.forEach((d, j) => {
     const on = j === i;
     d.classList.toggle("active", on);
