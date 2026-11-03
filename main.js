@@ -219,7 +219,7 @@ const CHAPTERS = [
   { skyTop: "#0a0f24", skyBot: "#1b2340", fog: ["#1b2340", 0.028], far: "#232c4e", mid: "#1d2542", near: "#161c33",
     volcano: 0.4, volcanoC: "#20263f", plume: 0.2, glow: 0.75, jungle: 0, sand: 0, water: 0.35, foam: 0.18,
     birds: 1, stars: 1, motes: ["#d8d2c0", 0.4], night: true,
-    caption: "Ten thousand wings own the night.", whisper: "The island has never had a keeper." },
+    caption: "Ten thousand wings own the night.", whisper: "No keeper for three hundred years." },
 ];
 let chapter = 0;
 const target = {
