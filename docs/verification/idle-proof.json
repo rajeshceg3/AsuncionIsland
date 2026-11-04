@@ -1,0 +1,112 @@
+[
+  {
+    "width": 390,
+    "idle": [
+      {
+        "id": "masthead",
+        "show": false,
+        "idle": true,
+        "opacity": 0
+      },
+      {
+        "id": "caption",
+        "show": true,
+        "idle": true,
+        "opacity": 0
+      },
+      {
+        "id": "whisper",
+        "show": true,
+        "idle": true,
+        "opacity": 0
+      },
+      {
+        "id": "dock",
+        "show": false,
+        "idle": true,
+        "opacity": 0
+      }
+    ],
+    "awake": [
+      {
+        "id": "masthead",
+        "show": false,
+        "idle": false,
+        "opacity": 1
+      },
+      {
+        "id": "caption",
+        "show": true,
+        "idle": false,
+        "opacity": 1
+      },
+      {
+        "id": "whisper",
+        "show": true,
+        "idle": false,
+        "opacity": 1
+      },
+      {
+        "id": "dock",
+        "show": false,
+        "idle": false,
+        "opacity": 1
+      }
+    ]
+  },
+  {
+    "width": 1365,
+    "idle": [
+      {
+        "id": "masthead",
+        "show": false,
+        "idle": true,
+        "opacity": 0
+      },
+      {
+        "id": "caption",
+        "show": true,
+        "idle": true,
+        "opacity": 0
+      },
+      {
+        "id": "whisper",
+        "show": true,
+        "idle": true,
+        "opacity": 0
+      },
+      {
+        "id": "dock",
+        "show": false,
+        "idle": true,
+        "opacity": 0
+      }
+    ],
+    "awake": [
+      {
+        "id": "masthead",
+        "show": false,
+        "idle": false,
+        "opacity": 1
+      },
+      {
+        "id": "caption",
+        "show": true,
+        "idle": false,
+        "opacity": 1
+      },
+      {
+        "id": "whisper",
+        "show": true,
+        "idle": false,
+        "opacity": 1
+      },
+      {
+        "id": "dock",
+        "show": false,
+        "idle": false,
+        "opacity": 1
+      }
+    ]
+  }
+]

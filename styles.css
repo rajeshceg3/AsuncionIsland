@@ -120,3 +120,7 @@ body.night .dot.active { background: rgba(236, 231, 218, 0.14); }
 /* the masthead sits over the sky; on a bright-sky night-ink chapter (the
    black-sand shore) it keeps dark ink even though the caption needs light */
 body.night.bright-sky .wordmark-small { color: #2e2718; }
+
+/* Idle is the final visibility state, even while chapter copy is .show. */
+#caption.show.idle,
+#whisper.show.idle { opacity: 0; }
