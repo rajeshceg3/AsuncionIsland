@@ -40,7 +40,7 @@ function resize() {
 }
 function applyCameraMode() {
   if (worldMode) {
-    camera.fov = camera.aspect < 0.75 ? 70 : 62;
+    camera.fov = camera.aspect < 0.75 ? 75 : 62;
     camera.far = 1800;
   } else {
     camera.fov = 55; camera.far = 200;
@@ -242,7 +242,7 @@ scene.add(mist);
 let mistTarget = 0;
 /* view state for look-around: unbounded azimuth, shallow pitch */
 const look = { yaw: 0, pitch: 0.02, vel: 0 };
-const PITCH_MAX = 0.26;
+const PITCH_UP = 0.32, PITCH_DOWN = -0.26;   // Windermere allows a longer look up than down; the caption must stay over ground
 function applyMode(on) {
   worldMode = on;
   flatObjs.forEach((o) => { o.visible = !on; });
@@ -401,9 +401,10 @@ addEventListener("pointermove", (e) => {
   if (worldMode && lookPointer === e.pointerId) {
     /* the world follows the finger: azimuth is unbounded, pitch stays shallow */
     const vf = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
-    const dyaw = (e.clientX - lookX) * (hf / innerWidth), dpitch = (e.clientY - lookY) * (vf / innerHeight);
+    const gain = camera.aspect < 0.75 ? 1.8 : 1;   // a narrow phone screen covers little of the circle, so a swipe turns further
+    const dyaw = (e.clientX - lookX) * (hf / innerWidth) * gain, dpitch = (e.clientY - lookY) * (vf / innerHeight) * gain;
     look.yaw += dyaw;
-    look.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, look.pitch + dpitch));
+    look.pitch = Math.max(PITCH_DOWN, Math.min(PITCH_UP, look.pitch + dpitch));
     const now = performance.now(), dtm = Math.max(8, now - lookT) / 1000;
     look.vel = lerp(look.vel, dyaw / dtm, 0.35);
     lookX = e.clientX; lookY = e.clientY; lookT = now;
@@ -445,14 +446,15 @@ canvas.addEventListener("keydown", (e) => {
   const step = 0.16;
   if (e.key === "ArrowLeft") look.yaw += step;
   else if (e.key === "ArrowRight") look.yaw -= step;
-  else if (e.key === "ArrowUp") look.pitch = Math.min(PITCH_MAX, look.pitch + 0.06);
-  else if (e.key === "ArrowDown") look.pitch = Math.max(-PITCH_MAX, look.pitch - 0.06);
+  else if (e.key === "ArrowUp") look.pitch = Math.min(PITCH_UP, look.pitch + 0.06);
+  else if (e.key === "ArrowDown") look.pitch = Math.max(PITCH_DOWN, look.pitch - 0.06);
   else return;
   e.preventDefault(); look.vel = 0; wakeChrome();
 });
 
 /* ---------- loop ---------- */
 const clock = new THREE.Clock();
+let updMs = 0;
 let camX = 0, camY = 0;
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -475,7 +477,10 @@ function tick() {
     camera.rotation.set(look.pitch, look.yaw, 0);
     const horizon = 0.5 - 0.5 * Math.tan(look.pitch) / Math.tan(camera.fov * Math.PI / 360);
     skyMat.uniforms.uHorizon.value = horizon;
+    const u0 = performance.now();
     shore.update(tA, camera);
+    updMs = updMs * 0.95 + (performance.now() - u0) * 0.05;
+    canvas.dataset.updateMs = updMs.toFixed(3);
     canvas.dataset.yaw = look.yaw.toFixed(3); canvas.dataset.pitch = look.pitch.toFixed(3);
   } else {
     delete canvas.dataset.yaw; delete canvas.dataset.pitch;

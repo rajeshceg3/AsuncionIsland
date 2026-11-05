@@ -21,23 +21,32 @@ const fbm = (x, z) => vnoise(x, z) * 0.55 + vnoise(x * 2.1, z * 2.1) * 0.3 + vno
 /* coast: a gentle cove with a rocky point on each side, curving inland far out */
 export function shoreAt(x) {
   return -9 + 0.0006 * x * x
+    + 1.3 * Math.sin(x * 0.11 + 0.7) + 0.9 * Math.sin(x * 0.29 + 2.1) + 1.6 * (vnoise(x * 0.07, 3.3) - 0.5)
     - 20 * Math.exp(-(((x - 58) / 20) ** 2))
     - 16 * Math.exp(-(((x + 66) / 17) ** 2));
 }
-const VOLCANO = { x: 20, z: 300, h: 190, r: 235 };
+const VOLCANO = { x: 20, z: 320, h: 165, r: 250 };
 export function heightAt(x, z) {
   const d = z - shoreAt(x);
   let h;
   if (d < 0) h = Math.max(-3, d * 0.08) - 0.05;
-  else h = Math.min(d, 16) * 0.085 + smooth(14, 70, d) * 5.5;
-  h += (Math.exp(-(((x - 58) / 17) ** 2) - (((z + 30) / 20) ** 2)) * 4.5 +
-        Math.exp(-(((x + 66) / 15) ** 2) - (((z + 24) / 18) ** 2)) * 4.0) * (0.6 + fbm(x * 0.35, z * 0.35));
-  if (d > 0) h += (fbm(x * 0.05, z * 0.05) - 0.5) * 9 * smooth(20, 160, d) + (vnoise(x * 0.6, z * 0.6) - 0.5) * 0.25 * smooth(2, 12, d);
+  else h = Math.min(d, 10) * 0.09 + smooth(8, 80, d) * 7 + smooth(10, 45, d) * (fbm(x * 0.13, z * 0.13) - 0.45) * 5;
+  /* sources: Asuncion's steep side ends in high sea cliffs, the gentler side in low ones.
+     Right point is the high cliff, left point the low one. */
+  h += Math.exp(-(((x - 58) / 15) ** 2) - (((z + 30) / 26) ** 2)) * (13 + 9 * fbm(x * 0.2, z * 0.2));
+  h += Math.exp(-(((x + 66) / 14) ** 2) - (((z + 24) / 20) ** 2)) * (4.5 + 3 * fbm(x * 0.3, z * 0.3));
+  if (d > 0) {
+    h += (fbm(x * 0.05, z * 0.05) - 0.5) * 9 * smooth(20, 160, d) + (vnoise(x * 0.6, z * 0.6) - 0.5) * 0.45 * smooth(2, 12, d);
+    /* lava-flow ridges running down from the cone */
+    const ang = Math.atan2(z - VOLCANO.z, x - VOLCANO.x);
+    const flow = Math.pow(0.5 + 0.5 * Math.sin(ang * 34 + fbm(x * 0.02, z * 0.02) * 9), 2);
+    h += flow * 2.6 * smooth(14, 90, d);
+  }
   const dx = x - VOLCANO.x, dz = z - VOLCANO.z, r = Math.hypot(dx, dz);
   if (r < VOLCANO.r) {
-    let c = VOLCANO.h * Math.pow(1 - r / VOLCANO.r, 1.7);
-    c *= 1 + 0.032 * Math.sin(Math.atan2(dz, dx) * 13 + vnoise(x * 0.03, z * 0.03) * 6) * smooth(10, 120, VOLCANO.r - r);
-    c -= 26 * (1 - smooth(0, 22, r));
+    let c = VOLCANO.h * Math.pow(1 - r / VOLCANO.r, 1.55);
+    c *= 1 + 0.03 * Math.sin(Math.atan2(dz, dx) * 11 + vnoise(x * 0.03, z * 0.03) * 6) * smooth(60, 190, r) * (1 - smooth(200, 245, r));
+    c -= 22 * (1 - smooth(0, 26, r));
     h += c;
   }
   return h;
@@ -54,7 +63,7 @@ const lin = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4
 const hex = (s) => { const n = parseInt(s.slice(1), 16); return [lin((n >> 16) / 255), lin(((n >> 8) & 255) / 255), lin((n & 255) / 255)]; };
 const C = {
   wet: hex("#15120f"), sand1: hex("#26211e"), sand2: hex("#38312c"),
-  leaf1: hex("#3c6b40"), leaf2: hex("#55844f"), ash: hex("#85776a"), rock: hex("#4a3f38"), cap: hex("#a39688"),
+  leaf1: hex("#4d6a3a"), leaf2: hex("#7b8a49"), ash: hex("#4b423b"), rock: hex("#4a3f38"), cap: hex("#7a6e63"), lava: hex("#2d2825"), rubble: hex("#443b35"),
 };
 function mix3(a, b, t) { return [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)]; }
 
@@ -63,11 +72,15 @@ function terrainColor(x, z, h, ny) {
   const n = vnoise(x * 0.9, z * 0.9);
   let c = mix3(C.sand1, C.sand2, n);
   c = mix3(C.wet, c, smooth(0, 3.2, d));                       // wet sand at the waterline
-  const lush = smooth(20, 52, d) * (1 - smooth(55, 105, h)) * smooth(0.55, 0.85, ny);
-  c = mix3(c, mix3(C.leaf1, C.leaf2, fbm(x * 0.08, z * 0.08)), lush);
-  const high = smooth(50, 110, h);
-  c = mix3(c, mix3(C.rock, C.ash, fbm(x * 0.1, z * 0.1)), high * (1 - lush * 0.6));
-  c = mix3(c, C.cap, smooth(118, 138, h) * 0.55);
+  /* sources: lava rubble runs from shore to peak on the gentler sides, with scrub, fern and
+     low grass in patches. Mostly dark, patched green. */
+  const rub = smooth(7, 22, d);
+  c = mix3(c, mix3(C.rubble, C.lava, fbm(x * 0.2, z * 0.2)), rub * 0.9);
+  const patch = smooth(0.42, 0.62, fbm(x * 0.045 + 5, z * 0.045 + 2));
+  const lush = smooth(14, 40, d) * (1 - smooth(60, 120, h)) * smooth(0.5, 0.8, ny) * patch;
+  c = mix3(c, mix3(C.leaf1, C.leaf2, fbm(x * 0.09, z * 0.09)), lush);
+  c = mix3(c, mix3(C.lava, C.ash, fbm(x * 0.1, z * 0.1)), smooth(40, 100, h) * (1 - lush * 0.7));
+  c = mix3(c, C.cap, smooth(120, 150, h) * 0.45);
   if (d < 0) c = mix3(c, C.rock, smooth(0.3, 2.2, h));        // rock on the headlands
   return c;
 }
@@ -156,10 +169,16 @@ export function createShoreWorld(THREE, { birdGeometry, birdMaterial, plumeMater
   seaGeo.setAttribute("position", new THREE.BufferAttribute(sp, 3));
   seaGeo.setAttribute("color", new THREE.BufferAttribute(sc, 3));
   seaGeo.setIndex(si);
-  const sea = new THREE.Mesh(seaGeo, new THREE.MeshBasicMaterial({ vertexColors: true }));
+  const seaMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const waveTime = { value: 0 };
+  seaMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = waveTime;
+    sh.vertexShader = "uniform float uTime;\n" + sh.vertexShader.replace("#include <begin_vertex>",
+      "#include <begin_vertex>\n transformed.y += (sin(position.x * 0.045 + uTime * 0.7) + sin(position.z * 0.06 - uTime * 0.55) + sin((position.x + position.z) * 0.11 + uTime * 1.1) * 0.5) * 0.035;");
+  };
+  const sea = new THREE.Mesh(seaGeo, seaMat);
   sea.frustumCulled = false;
   group.add(sea);
-  const seaBase = sp.slice();
 
   /* foam: three bands that wash up and back along the real coastline */
   const FN = 160, FX0 = -140, FX1 = 140;
@@ -179,9 +198,10 @@ export function createShoreWorld(THREE, { birdGeometry, birdMaterial, plumeMater
       const pa = m.geometry.attributes.position;
       for (let i = 0; i <= FN; i++) {
         const x = mix(FX0, FX1, i / FN);
-        const wash = (0.5 + 0.5 * Math.sin(t * 0.5 + k * 2.1 + x * 0.045)) * (1.1 + k * 0.5) + k * 1.1;
+        const n1 = vnoise(x * 0.09 + k * 17, t * 0.12 + k * 5), n2 = vnoise(x * 0.31 + k * 3, t * 0.2 + 9);
+        const wash = (0.5 + 0.5 * Math.sin(t * 0.5 + k * 2.1 + x * 0.045 + n1 * 5)) * (1.0 + k * 0.7) + k * 1.3 + (n1 - 0.5) * 1.6;
         const edge = shoreAt(x) - wash;
-        const w = 0.28 + 0.22 * (0.5 + 0.5 * Math.sin(x * 0.2 + k * 3 + t * 0.7));
+        const w = Math.max(0, (0.1 + 0.55 * n2) * smooth(0.28, 0.5, n1 + k * 0.05));   // breaks into patches instead of a ruler line
         pa.setXYZ(i * 2, x, 0.07, edge);
         pa.setXYZ(i * 2 + 1, x, 0.07, edge - w);
       }
@@ -190,43 +210,77 @@ export function createShoreWorld(THREE, { birdGeometry, birdMaterial, plumeMater
     });
   }
 
-  /* sea stacks and boulders: dark basalt, placed round the whole horizon */
+  /* lava rubble: boulders in clusters along the shore and up the slope. Size and density rise
+     toward the headlands, so the near ground is not a bare slab. */
   const rocks = new THREE.Group();
-  const stacks = [
-    [-34, -58, 5, 2.4], [-70, -96, 8, 3.2], [18, -120, 4, 3.0], [96, -80, 6, 2.6], [-128, -40, 5, 2.2],
-    [150, -30, 7, 2.2], [52, -64, 3, 2.0], [-18, -150, 9, 2.8], [-200, -90, 12, 2.5], [210, -110, 10, 2.4],
-  ];
-  for (const [x, z, s, tall] of stacks) {
-    const m = new THREE.Mesh(rockGeometry(rng, tall), new THREE.MeshBasicMaterial({ vertexColors: true }));
-    m.position.set(x, Math.max(0, heightAt(x, z)) - s * 0.25, z);
-    m.scale.set(s, s, s * 0.9); m.rotation.y = rng() * 6.28;
-    rocks.add(m);
+  const rockGeos = [0, 1, 2, 3].map(() => rockGeometry(rng, 0.7 + rng() * 0.5));
+  const rockMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const rubbleSpots = [];
+  for (let c = 0; c < 70; c++) {
+    const x = (rng() - 0.5) * 300, d = 2 + Math.pow(rng(), 1.6) * 110;
+    rubbleSpots.push([x, shoreAt(x) + d]);
   }
-  for (let i = 0; i < 26; i++) {
-    const x = (rng() - 0.5) * 220, z = shoreAt(x) + 1 + rng() * 9, s = 0.35 + rng() * 0.9;
-    if (Math.abs(x) < 4) continue;
-    const m = new THREE.Mesh(rockGeometry(rng, 0.75), new THREE.MeshBasicMaterial({ vertexColors: true }));
-    m.position.set(x, heightAt(x, z) + s * 0.1, z); m.scale.set(s, s, s); m.rotation.y = rng() * 6.28;
-    rocks.add(m);
+  for (const [cx, cz] of rubbleSpots) {
+    const n = 3 + Math.floor(rng() * 9);
+    for (let i = 0; i < n; i++) {
+      const x = cx + (rng() - 0.5) * 12, z = cz + (rng() - 0.5) * 12;
+      const near = Math.hypot(x, z - 2);
+      if (near < 7) continue;
+      if (z < shoreAt(x) + 0.4) continue;
+      const big = rng() < 0.12 && near > 18 ? 2.4 : 1;
+      const s = (0.3 + rng() * 1.1) * big;
+      const m = new THREE.Mesh(rockGeos[(rng() * 4) | 0], rockMat);
+      m.position.set(x, heightAt(x, z) + s * 0.18, z); m.scale.set(s * (1 + rng() * 0.6), s, s * (1 + rng() * 0.4)); m.rotation.y = rng() * 6.28;
+      rocks.add(m);
+    }
+  }
+  /* big blocks that have fallen at the foot of each point */
+  for (const [px, pz, k] of [[58, -8, 1], [-66, -6, 0.6], [48, -2, 0.8], [-58, 0, 0.5]]) {
+    for (let i = 0; i < 5; i++) {
+      const x = px + (rng() - 0.5) * 18, z = pz + (rng() - 0.5) * 12, s = (1.2 + rng() * 2.4) * k;
+      if (z < shoreAt(x) - 1) continue;
+      const m = new THREE.Mesh(rockGeos[(rng() * 4) | 0], rockMat);
+      m.position.set(x, heightAt(x, z) + s * 0.15, z); m.scale.set(s, s * 0.9, s); m.rotation.y = rng() * 6.28;
+      rocks.add(m);
+    }
   }
   group.add(rocks);
 
-  /* jungle: instanced canopy clumps on the slopes above the beach */
-  const blobGeo = bakeFlat(new THREE.IcosahedronGeometry(1, 1), [1, 1, 1], rng, 0.16);
+  /* scrub and forest clumps: smooth, noise-shaped, shaded by height rather than by facet */
+  const bushGeo = (() => {
+    const g = new THREE.IcosahedronGeometry(1, 2);
+    const p = g.attributes.position;
+    const seed = 41;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const k = 0.78 + vnoise(x * 2.4 + seed, z * 2.4 + y * 2.1) * 0.5;
+      p.setXYZ(i, x * k, y * k, z * k);
+    }
+    g.computeVertexNormals();
+    const n = g.attributes.normal, col = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) {
+      const up = n.getY(i) * 0.5 + 0.5, s = 0.45 + 0.7 * up * up + 0.1 * vnoise(p.getX(i) * 5, p.getZ(i) * 5);
+      col[i * 3] = s; col[i * 3 + 1] = s; col[i * 3 + 2] = s;
+    }
+    g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    return g;
+  })();
   const trees = [];
-  for (let tries = 0; tries < 9000 && trees.length < 1400; tries++) {
-    const x = (rng() - 0.5) * 520, z = rng() * 360;
+  for (let tries = 0; tries < 24000 && trees.length < 2600; tries++) {
+    const x = (rng() - 0.5) * 560, z = rng() * 420;
     const d = z - shoreAt(x), h = heightAt(x, z);
-    if (d < 34 || h > 70 || Math.hypot(x, z) < 22) continue;
+    if (d < 11 || h > 78 || Math.hypot(x, z - 2) < 9) continue;
     const sl = Math.abs(heightAt(x + 3, z) - h) + Math.abs(heightAt(x, z + 3) - h);
-    if (sl > 9) continue;
-    if (fbm(x * 0.05 + 9, z * 0.05) < 0.34) continue;                   // clearings
-    trees.push([x, h, z, 1.9 + rng() * 2.6]);
+    if (sl > 8) continue;
+    const dens = fbm(x * 0.045 + 5, z * 0.045 + 2);                      // same patches as the ground colour
+    if (dens < 0.46 + rng() * 0.2) continue;
+    const near = d < 42;
+    trees.push([x, h, z, near ? 0.7 + rng() * 1.3 : 1.6 + rng() * 2.6, near ? 0.8 : 0.95]);
   }
-  const canopy = new THREE.InstancedMesh(blobGeo, new THREE.MeshBasicMaterial({ vertexColors: true }), trees.length);
+  const canopy = new THREE.InstancedMesh(bushGeo, new THREE.MeshBasicMaterial({ vertexColors: true }), trees.length);
   const dummy = new THREE.Object3D(), tc = new THREE.Color();
-  trees.forEach(([x, h, z, s], i) => {
-    dummy.position.set(x, h + s * 0.55, z); dummy.scale.set(s, s * 0.62, s); dummy.rotation.y = rng() * 6.28; dummy.updateMatrix();
+  trees.forEach(([x, h, z, s, flat], i) => {
+    dummy.position.set(x, h + s * 0.35, z); dummy.scale.set(s * 1.15, s * flat * 0.85, s * 1.15); dummy.rotation.y = rng() * 6.28; dummy.updateMatrix();
     canopy.setMatrixAt(i, dummy.matrix);
     const c = mix3(C.leaf1, C.leaf2, rng());
     tc.setRGB(c[0], c[1], c[2]); canopy.setColorAt(i, tc);
@@ -257,13 +311,8 @@ export function createShoreWorld(THREE, { birdGeometry, birdMaterial, plumeMater
     gulls.push({ m, r: 22 + rng() * 60, h: 7 + rng() * 24, sp: (0.05 + rng() * 0.06) * (rng() < 0.5 ? -1 : 1), ph: rng() * 6.28, fl: 2.4 + rng() * 2, cz: -24 + rng() * 30 });
   }
 
-  const surf = [], rippleAmp = 0.035;
   function update(tA, camera) {
-    for (let v = 0; v < sp.length / 3; v++) {
-      const x = seaBase[v * 3], z = seaBase[v * 3 + 2];
-      sp[v * 3 + 1] = (Math.sin(x * 0.045 + tA * 0.7) + Math.sin(z * 0.06 - tA * 0.55) + Math.sin((x + z) * 0.11 + tA * 1.1) * 0.5) * rippleAmp;
-    }
-    seaGeo.attributes.position.needsUpdate = true;
+    waveTime.value = tA;
     updateFoam(tA);
     for (const p of puffs) {
       const life = (tA * 0.05 * p.drift + p.phase) % 1;

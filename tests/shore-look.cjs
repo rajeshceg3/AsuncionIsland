@@ -27,7 +27,7 @@ const shotDir=process.env.SHOT_DIR||'/tmp';
    await drag(width*0.25,height*0.4,width*0.75,height*0.4);await page.waitForTimeout(700);
    const v1=await view();assert(v1.yaw>v0.yaw+0.2,`drag right should turn the view: ${JSON.stringify(v1)}`);r.afterDrag=v1;
    if(rm){const a=(await view()).yaw;await page.waitForTimeout(700);const b=(await view()).yaw;assert.equal(a,b,'reduced motion: no glide after release');r.noGlide=true;}
-   await drag(width*0.5,height*0.2,width*0.5,height*0.9,12);const v2=await view();assert(Math.abs(v2.pitch)<=0.2601,`pitch stays shallow ${v2.pitch}`);assert(Math.abs(v2.pitch)>0.05,'vertical drag should tilt');r.pitchClamped=v2.pitch;
+   await drag(width*0.5,height*0.2,width*0.5,height*0.9,12);const v2=await view();assert(v2.pitch<=0.3201&&v2.pitch>=-0.2601,`pitch stays shallow ${v2.pitch}`);assert(Math.abs(v2.pitch)>0.05,'vertical drag should tilt');r.pitchClamped=v2.pitch;
    let turns=0;for(let i=0;i<14&&Math.abs((await view()).yaw)<7;i++){await drag(width*0.1,height*0.5,width*0.9,height*0.5,8);await page.waitForTimeout(rm?20:40);turns++}
    const v3=await view();assert(Math.abs(v3.yaw)>6.4,`azimuth is unbounded past one full turn: ${v3.yaw}`);r.fullTurn={yaw:v3.yaw,drags:turns};
    await page.mouse.click(width*0.5,height*0.15);await page.waitForTimeout(1500);const dock=await page.locator('#dock').boundingBox();const before=await view();
@@ -35,10 +35,11 @@ const shotDir=process.env.SHOT_DIR||'/tmp';
    const afterDockDrag=await view();assert.equal(afterDockDrag.yaw,before.yaw,'drag that starts on the dock never turns the world');r.dockDragIgnored=true;
    await page.focus('#island');const y1=(await view()).yaw;await page.keyboard.press('ArrowLeft');await page.waitForTimeout(600);const y2=(await view()).yaw;assert(y2>y1+0.1,'arrow key turns the focused world');
    await page.keyboard.press('ArrowRight');await page.waitForTimeout(600);r.keyboard=true;
-   await page.focus('.dot.active');const yk=(await view()).yaw;await page.keyboard.press('ArrowRight');await page.waitForTimeout(2200);
+   await page.focus('.dot.active');const yk=(await view()).yaw;await page.keyboard.press('ArrowRight');await page.waitForFunction(()=>document.getElementById('island').dataset.yaw===undefined,null,{timeout:15000}).catch(()=>{});
    assert.equal((await view()).has,false,'arrows on the dock change the chapter, and the shore view is left');r.dockArrowsChangeChapter=true;
    await page.screenshot({path:`${shotDir}/shore-after-leave-${tag}.png`});
-   await page.click('.dot[data-scene="2"]');await page.waitForFunction(()=>document.getElementById('island').dataset.yaw!==undefined,null,{timeout:15000});
+   await page.mouse.click(width*0.5,height*0.15);await page.waitForTimeout(1200);
+   await page.click('.dot[data-scene="2"]');await page.waitForFunction(()=>document.getElementById('island').dataset.yaw!==undefined,null,{timeout:20000});
    const re=await view();assert(Math.abs(re.yaw)<0.001,'the shore defines its own entry view');r.reentry=re.yaw;
    assert.deepEqual(errs,[],errs.join('\n'));
    out.push(r);await ctx.close();
