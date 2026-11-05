@@ -124,3 +124,6 @@ body.night.bright-sky .wordmark-small { color: #2e2718; }
 /* Idle is the final visibility state, even while chapter copy is .show. */
 #caption.show.idle,
 #whisper.show.idle { opacity: 0; }
+
+/* the world itself is focusable so the view can be turned with the arrow keys */
+#island:focus-visible { outline: 2px solid var(--ink); outline-offset: -6px; }
