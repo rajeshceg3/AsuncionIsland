@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createShoreWorld, shoreAt } from "./shore.js";
+import { createShoreAudio } from "./shore-audio.js";
 
 /* ---------- tiny spring tween ---------- */
 const springs = [];
@@ -245,6 +246,7 @@ const look = { yaw: 0, pitch: 0.02, vel: 0 };
 const PITCH_UP = 0.32, PITCH_DOWN = -0.26;   // Windermere allows a longer look up than down; the caption must stay over ground
 function applyMode(on) {
   worldMode = on;
+  shoreAudio.setActive(on);
   flatObjs.forEach((o) => { o.visible = !on; });
   shore.group.visible = on;
   skyMat.uniforms.uWorld.value = on ? 1 : 0;
@@ -259,6 +261,19 @@ function applyMode(on) {
   resize();
 }
 
+/* ---------- shore sound: off until asked, only heard on the shore ---------- */
+const shoreAudio = createShoreAudio();
+const soundBtn = document.getElementById("sound");
+soundBtn.addEventListener("click", async () => {
+  const want = soundBtn.getAttribute("aria-pressed") !== "true";
+  const ok = await shoreAudio.setEnabled(want);
+  soundBtn.setAttribute("aria-pressed", String(ok));
+  soundBtn.textContent = ok ? "Sound on" : "Sound off";
+  soundBtn.setAttribute("aria-label", ok ? "Shore sound: on. Turn off" : "Shore sound: off. Turn on");
+  wakeChrome();
+});
+document.addEventListener("visibilitychange", () => { shoreAudio.setActive(!document.hidden && worldMode); });
+window.__shoreAudio = shoreAudio;   // test hook
 /* ---------- chapters ---------- */
 const CHAPTERS = [
   { skyTop: "#ffedd2", skyBot: "#f6d3a3", fog: ["#f6d3a3", 0.014], far: "#9a8874", mid: "#7a6a56", near: "#5f5346",
@@ -313,6 +328,7 @@ function setChapter(i) {
   target.water = c.water; target.foam = c.foam; target.birds = c.birds;
   target.stars = c.stars; target.motesO = c.motes[1];
   document.body.classList.toggle("night", c.night);
+  document.body.classList.toggle("in-shore", chapter === WORLD_CHAPTER);
   document.body.classList.toggle("bright-sky", !!c.brightSky);
   dots.forEach((d, j) => {
     const on = j === i;

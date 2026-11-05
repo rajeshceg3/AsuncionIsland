@@ -127,3 +127,8 @@ body.night.bright-sky .wordmark-small { color: #2e2718; }
 
 /* the world itself is focusable so the view can be turned with the arrow keys */
 #island:focus-visible { outline: 1px solid color-mix(in srgb, var(--ink) 45%, transparent); outline-offset: -10px; border-radius: 18px; }
+
+#sound { position: fixed; top: max(1rem, env(safe-area-inset-top)); right: 3.4rem; z-index: 5; font: 500 0.78rem/1 "Cormorant Garamond", serif; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); background: rgba(255,255,255,0.22); border: 1px solid rgba(60,50,40,0.28); border-radius: 999px; padding: 0.55rem 0.9rem; min-height: 40px; backdrop-filter: blur(6px); cursor: pointer; }
+#sound[aria-pressed="true"] { background: rgba(255,255,255,0.4); }
+#sound:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+body:not(.in-shore) #sound { display: none; }
