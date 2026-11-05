@@ -126,4 +126,4 @@ body.night.bright-sky .wordmark-small { color: #2e2718; }
 #whisper.show.idle { opacity: 0; }
 
 /* the world itself is focusable so the view can be turned with the arrow keys */
-#island:focus-visible { outline: 2px solid var(--ink); outline-offset: -6px; }
+#island:focus-visible { outline: 1px solid color-mix(in srgb, var(--ink) 45%, transparent); outline-offset: -10px; border-radius: 18px; }

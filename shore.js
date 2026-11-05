@@ -201,12 +201,12 @@ export function createShoreWorld(THREE, { birdGeometry, birdMaterial, plumeMater
         const n1 = vnoise(x * 0.09 + k * 17, t * 0.12 + k * 5), n2 = vnoise(x * 0.31 + k * 3, t * 0.2 + 9);
         const wash = (0.5 + 0.5 * Math.sin(t * 0.5 + k * 2.1 + x * 0.045 + n1 * 5)) * (1.0 + k * 0.7) + k * 1.3 + (n1 - 0.5) * 1.6;
         const edge = shoreAt(x) - wash;
-        const w = Math.max(0, (0.1 + 0.55 * n2) * smooth(0.28, 0.5, n1 + k * 0.05));   // breaks into patches instead of a ruler line
+        const w = Math.max(0, (0.12 + 0.9 * n2 * n2 + 0.25 * k) * smooth(0.3, 0.52, n1 + k * 0.05));   // breaks into patches instead of a ruler line
         pa.setXYZ(i * 2, x, 0.07, edge);
         pa.setXYZ(i * 2 + 1, x, 0.07, edge - w);
       }
       pa.needsUpdate = true;
-      m.material.opacity = 0.62 - k * 0.14;
+      m.material.opacity = 0.5 - k * 0.14;
     });
   }
 
