@@ -467,6 +467,7 @@ function tick() {
   mistMat.uniforms.o.value = lerp(mistMat.uniforms.o.value, mistTarget, 1 - Math.exp(-(reduceMotion ? 14 : 7) * dt));
   mistMat.uniforms.color.value.copy(scene.fog.color);
   if (mistTarget === 1 && mistMat.uniforms.o.value > 0.97) applyMode(wantWorld);
+  canvas.dataset.mist = mistMat.uniforms.o.value.toFixed(2);
 
   if (worldMode) {
     if (lookPointer === null && !reduceMotion) {
