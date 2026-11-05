@@ -457,14 +457,15 @@ const clock = new THREE.Clock();
 let updMs = 0;
 let camX = 0, camY = 0;
 function tick() {
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const rawDt = clock.getDelta();
+  const dt = Math.min(rawDt, 0.05);
   const t = clock.elapsedTime;
   const tA = reduceMotion ? 0 : t;
 
   /* leaving or entering the shore crosses a wash of mist, so the camera never jumps in view */
   const wantWorld = chapter === WORLD_CHAPTER;
   mistTarget = wantWorld !== worldMode ? 1 : 0;
-  mistMat.uniforms.o.value = lerp(mistMat.uniforms.o.value, mistTarget, 1 - Math.exp(-(reduceMotion ? 14 : 7) * dt));
+  mistMat.uniforms.o.value = lerp(mistMat.uniforms.o.value, mistTarget, 1 - Math.exp(-(reduceMotion ? 14 : 7) * Math.min(rawDt, 0.4)));  // wall-clock, so a slow frame rate cannot stretch the wash
   mistMat.uniforms.color.value.copy(scene.fog.color);
   if (mistTarget === 1 && mistMat.uniforms.o.value > 0.97) applyMode(wantWorld);
   canvas.dataset.mist = mistMat.uniforms.o.value.toFixed(2);
