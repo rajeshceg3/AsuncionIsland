@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { createShoreWorld, shoreAt } from "./shore.js";
+import { createShoreAudio } from "./shore-audio.js";
 
 /* ---------- tiny spring tween ---------- */
 const springs = [];
@@ -35,17 +37,27 @@ function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  camera.position.z = camera.aspect < 0.75 ? 13.5 : 10;
+  applyCameraMode();
+}
+function applyCameraMode() {
+  if (worldMode) {
+    camera.fov = camera.aspect < 0.75 ? 75 : 62;
+    camera.far = 1800;
+  } else {
+    camera.fov = 55; camera.far = 200;
+    camera.position.z = camera.aspect < 0.75 ? 13.5 : 10;
+  }
   camera.updateProjectionMatrix();
 }
+let worldMode = false;
 addEventListener("resize", resize); resize();
 
 /* ---------- sky ---------- */
 const skyMat = new THREE.ShaderMaterial({
   depthWrite: false,
-  uniforms: { top: { value: new THREE.Color("#ffedd2") }, bottom: { value: new THREE.Color("#f6d3a3") } },
+  uniforms: { top: { value: new THREE.Color("#ffedd2") }, bottom: { value: new THREE.Color("#f6d3a3") }, uWorld: { value: 0 }, uHorizon: { value: 0.5 } },
   vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.9999, 1.0); }",
-  fragmentShader: "uniform vec3 top; uniform vec3 bottom; varying vec2 vUv; void main(){ gl_FragColor = vec4(mix(bottom, top, smoothstep(0.15, 0.85, vUv.y)), 1.0); }",
+  fragmentShader: "uniform vec3 top; uniform vec3 bottom; uniform float uWorld; uniform float uHorizon; varying vec2 vUv; void main(){ float flat_ = smoothstep(0.15, 0.85, vUv.y); float world_ = smoothstep(0.0, 0.62, vUv.y - uHorizon); gl_FragColor = vec4(mix(bottom, top, mix(flat_, world_, uWorld)), 1.0); }",
 });
 const sky = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), skyMat);
 sky.frustumCulled = false; sky.renderOrder = -10;
@@ -101,6 +113,14 @@ function ripple(x, y) {
   m.position.set(x, y, -12.2); m.scale.y = 0.3;
   scene.add(m);
   ripples.push({ m, t: 0 });
+}
+/* a ring on the sea itself, flat on the water */
+function rippleSea(x, z) {
+  const g = new THREE.RingGeometry(0.42, 0.5, 48);
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.09, z);
+  scene.add(m);
+  ripples.push({ m, t: 0, sea: true });
 }
 
 /* ---------- the volcano ---------- */
@@ -202,6 +222,58 @@ const moteMat = new THREE.PointsMaterial({ color: "#fff2dc", size: 0.22, transpa
 const motes = new THREE.Points(moteGeo, moteMat);
 scene.add(motes);
 
+/* ---------- the shore: a real place around the viewer ---------- */
+const WORLD_CHAPTER = 2;
+const WORLD_FOG = 0.0042;
+const flatObjs = scene.children.filter((c) => c !== sky);
+const shore = createShoreWorld(THREE, {
+  birdGeometry: gull, birdMaterial: birdMat,
+  plumeMaterial: () => new THREE.MeshBasicMaterial({ color: "#fff4e2", transparent: true, opacity: 0, depthWrite: false }),
+});
+scene.add(shore.group);
+const mistMat = new THREE.ShaderMaterial({
+  transparent: true, depthTest: false, depthWrite: false,
+  uniforms: { color: { value: new THREE.Color("#cfe7e4") }, o: { value: 0 } },
+  vertexShader: "void main(){ gl_Position = vec4(position.xy, 0.0, 1.0); }",
+  fragmentShader: "uniform vec3 color; uniform float o; void main(){ gl_FragColor = vec4(color, o); }",
+});
+const mist = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mistMat);
+mist.frustumCulled = false; mist.renderOrder = 100;
+scene.add(mist);
+let mistTarget = 0;
+/* view state for look-around: unbounded azimuth, shallow pitch */
+const look = { yaw: 0, pitch: 0.02, vel: 0 };
+const PITCH_UP = 0.32, PITCH_DOWN = -0.26;   // Windermere allows a longer look up than down; the caption must stay over ground
+function applyMode(on) {
+  worldMode = on;
+  shoreAudio.setActive(on);
+  flatObjs.forEach((o) => { o.visible = !on; });
+  shore.group.visible = on;
+  skyMat.uniforms.uWorld.value = on ? 1 : 0;
+  camera.rotation.order = on ? "YXZ" : "XYZ";
+  camera.rotation.set(0, 0, 0);
+  if (on) {
+    look.yaw = 0; look.pitch = 0.02; look.vel = 0;
+    camera.position.set(0, shore.heightAt(0, 2) + 1.7, 2);
+  } else {
+    camera.position.set(0, 0, 0);
+  }
+  resize();
+}
+
+/* ---------- shore sound: off until asked, only heard on the shore ---------- */
+const shoreAudio = createShoreAudio();
+const soundBtn = document.getElementById("sound");
+soundBtn.addEventListener("click", async () => {
+  const want = soundBtn.getAttribute("aria-pressed") !== "true";
+  const ok = await shoreAudio.setEnabled(want);
+  soundBtn.setAttribute("aria-pressed", String(ok));
+  soundBtn.textContent = ok ? "Sound on" : "Sound off";
+  soundBtn.setAttribute("aria-label", ok ? "Shore sound: on. Turn off" : "Shore sound: off. Turn on");
+  wakeChrome();
+});
+document.addEventListener("visibilitychange", () => { shoreAudio.setActive(!document.hidden && worldMode); });
+window.__shoreAudio = shoreAudio;   // test hook
 /* ---------- chapters ---------- */
 const CHAPTERS = [
   { skyTop: "#ffedd2", skyBot: "#f6d3a3", fog: ["#f6d3a3", 0.014], far: "#9a8874", mid: "#7a6a56", near: "#5f5346",
@@ -256,6 +328,7 @@ function setChapter(i) {
   target.water = c.water; target.foam = c.foam; target.birds = c.birds;
   target.stars = c.stars; target.motesO = c.motes[1];
   document.body.classList.toggle("night", c.night);
+  document.body.classList.toggle("in-shore", chapter === WORLD_CHAPTER);
   document.body.classList.toggle("bright-sky", !!c.brightSky);
   dots.forEach((d, j) => {
     const on = j === i;
@@ -266,14 +339,22 @@ function setChapter(i) {
   clearTimeout(whisperTimer);
   clearTimeout(shoreCueFirst); clearInterval(shoreCueTimer);
   if (i === 2 && !reduceMotion) {
-    shoreCueFirst = setTimeout(() => ripple(-3 + Math.random() * 6, 0.1 + Math.random() * 0.7), 2400);
-    shoreCueTimer = setInterval(() => ripple(-6 + Math.random() * 12, 0.0 + Math.random() * 1.2), 5200);
+    shoreCueFirst = setTimeout(() => shoreCue(), 2400);
+    shoreCueTimer = setInterval(() => shoreCue(), 5200);
   }
   setTimeout(() => { caption.textContent = c.caption; caption.classList.add("show"); }, 1100);
   whisperTimer = setTimeout(() => { whisper.textContent = c.whisper; whisper.classList.add("show"); }, 3200);
   wakeChrome();
 }
 dots.forEach((d, i) => d.addEventListener("click", () => setChapter(i)));
+
+/* a quiet ring on the water, somewhere in the view the viewer is facing */
+function shoreCue() {
+  if (!worldMode) return;
+  const a = look.yaw + (Math.random() - 0.5) * 0.9, dist = 14 + Math.random() * 34;
+  const x = camera.position.x - Math.sin(a) * dist, z = camera.position.z - Math.cos(a) * dist;
+  if (z < shoreAt(x) - 2) rippleSea(x, z);
+}
 
 /* ---------- dock gestures: swipe to change face, arrows to step ---------- */
 const dock = document.getElementById("dock");
@@ -319,21 +400,54 @@ dock.addEventListener("keydown", (e) => {
 /* ---------- pointer ---------- */
 let px = 0, py = 0, dragging = false, moved = 0, downX = 0, downY = 0;
 let dockPointer = null;
+let lookPointer = null, lookX = 0, lookY = 0, lookT = 0;
+const lookRay = new THREE.Raycaster();
 addEventListener("pointerdown", (e) => {
   dragging = true; moved = 0; downX = e.clientX; downY = e.clientY; wakeChrome();
   dockPointer = e.target.closest && e.target.closest("#dock") ? e.pointerId : null;
+  if (worldMode && dockPointer === null && lookPointer === null) {
+    lookPointer = e.pointerId; lookX = e.clientX; lookY = e.clientY; lookT = performance.now(); look.vel = 0;
+  }
 });
 addEventListener("pointermove", (e) => {
   if (dragging) { moved += Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY); }
   if (dockPointer === e.pointerId) return; // dock gestures never move the scene
   px = (e.clientX / innerWidth) * 2 - 1;
   py = (e.clientY / innerHeight) * 2 - 1;
+  if (worldMode && lookPointer === e.pointerId) {
+    /* the world follows the finger: azimuth is unbounded, pitch stays shallow */
+    const vf = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+    const gain = camera.aspect < 0.75 ? 1.8 : 1;   // a narrow phone screen covers little of the circle, so a swipe turns further
+    const dyaw = (e.clientX - lookX) * (hf / innerWidth) * gain, dpitch = (e.clientY - lookY) * (vf / innerHeight) * gain;
+    look.yaw += dyaw;
+    look.pitch = Math.max(PITCH_DOWN, Math.min(PITCH_UP, look.pitch + dpitch));
+    const now = performance.now(), dtm = Math.max(8, now - lookT) / 1000;
+    look.vel = lerp(look.vel, dyaw / dtm, 0.35);
+    lookX = e.clientX; lookY = e.clientY; lookT = now;
+  }
 });
-addEventListener("pointercancel", (e) => { if (dockPointer === e.pointerId) dockPointer = null; });
+addEventListener("pointercancel", (e) => {
+  if (dockPointer === e.pointerId) dockPointer = null;
+  if (lookPointer === e.pointerId) { lookPointer = null; look.vel = 0; }
+});
 addEventListener("pointerup", (e) => {
   dragging = false;
+  if (lookPointer === e.pointerId) {
+    lookPointer = null;
+    if (reduceMotion || performance.now() - lookT > 90) look.vel = 0; // direct control, no glide
+    look.vel = Math.max(-2.2, Math.min(2.2, look.vel));
+  }
   if (dockPointer === e.pointerId) { dockPointer = null; return; } // dock taps never ripple the shore
-  if (moved < 12 && chapter === 2 && e.clientY > innerHeight * 0.4 && e.clientY < innerHeight * 0.86) {
+  if (moved < 12 && chapter === WORLD_CHAPTER && worldMode && e.clientY > innerHeight * 0.3 && e.clientY < innerHeight * 0.86) {
+    /* tap the sea: cast through the tap to the water plane */
+    lookRay.setFromCamera(new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -((e.clientY / innerHeight) * 2 - 1)), camera);
+    const dir = lookRay.ray.direction;
+    if (dir.y < -0.002) {
+      const t = (0.05 - camera.position.y) / dir.y;
+      const hx = camera.position.x + dir.x * t, hz = camera.position.z + dir.z * t;
+      if (t < 160 && hz < shoreAt(hx) - 1.5) rippleSea(hx, hz);
+    }
+  } else if (moved < 12 && chapter === 2 && !worldMode && e.clientY > innerHeight * 0.4 && e.clientY < innerHeight * 0.86) {
     const v = new THREE.Vector3((e.clientX / innerWidth) * 2 - 1, -((e.clientY / innerHeight) * 2 - 1), 0.5).unproject(camera);
     const dir = v.sub(camera.position).normalize();
     const t = (-13 - camera.position.z) / dir.z;
@@ -341,25 +455,64 @@ addEventListener("pointerup", (e) => {
     ripple(hit.x, hit.y);
   }
 });
+/* keyboard look-around: the world is focusable; arrows turn the view */
+canvas.tabIndex = 0;
+canvas.addEventListener("keydown", (e) => {
+  if (!worldMode) return;
+  const step = 0.16;
+  if (e.key === "ArrowLeft") look.yaw += step;
+  else if (e.key === "ArrowRight") look.yaw -= step;
+  else if (e.key === "ArrowUp") look.pitch = Math.min(PITCH_UP, look.pitch + 0.06);
+  else if (e.key === "ArrowDown") look.pitch = Math.max(PITCH_DOWN, look.pitch - 0.06);
+  else return;
+  e.preventDefault(); look.vel = 0; wakeChrome();
+});
 
 /* ---------- loop ---------- */
 const clock = new THREE.Clock();
+let updMs = 0;
 let camX = 0, camY = 0;
 function tick() {
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const rawDt = clock.getDelta();
+  const dt = Math.min(rawDt, 0.05);
   const t = clock.elapsedTime;
   const tA = reduceMotion ? 0 : t;
 
-  camX = lerp(camX, reduceMotion ? 0 : px * 1.1, 1 - Math.exp(-3.2 * dt));
-  camY = lerp(camY, reduceMotion ? 0 : -py * 0.5, 1 - Math.exp(-3.2 * dt));
-  camera.position.x = camX; camera.position.y = camY + 0.4;
-  camera.lookAt(camX * 0.4, camY * 0.3 + 0.6, -20);
+  /* leaving or entering the shore crosses a wash of mist, so the camera never jumps in view */
+  const wantWorld = chapter === WORLD_CHAPTER;
+  mistTarget = wantWorld !== worldMode ? 1 : 0;
+  mistMat.uniforms.o.value = lerp(mistMat.uniforms.o.value, mistTarget, 1 - Math.exp(-(reduceMotion ? 14 : 7) * Math.min(rawDt, 0.4)));  // wall-clock, so a slow frame rate cannot stretch the wash
+  mistMat.uniforms.color.value.copy(scene.fog.color);
+  if (mistTarget === 1 && mistMat.uniforms.o.value > 0.97) applyMode(wantWorld);
+  canvas.dataset.mist = mistMat.uniforms.o.value.toFixed(2);
+
+  if (worldMode) {
+    if (lookPointer === null && !reduceMotion) {
+      look.yaw += look.vel * dt;
+      look.vel *= Math.exp(-3.6 * dt);
+      if (Math.abs(look.vel) < 0.002) look.vel = 0;
+    }
+    camera.rotation.set(look.pitch, look.yaw, 0);
+    const horizon = 0.5 - 0.5 * Math.tan(look.pitch) / Math.tan(camera.fov * Math.PI / 360);
+    skyMat.uniforms.uHorizon.value = horizon;
+    const u0 = performance.now();
+    shore.update(tA, camera);
+    updMs = updMs * 0.95 + (performance.now() - u0) * 0.05;
+    canvas.dataset.updateMs = updMs.toFixed(3);
+    canvas.dataset.yaw = look.yaw.toFixed(3); canvas.dataset.pitch = look.pitch.toFixed(3);
+  } else {
+    delete canvas.dataset.yaw; delete canvas.dataset.pitch;
+    camX = lerp(camX, reduceMotion ? 0 : px * 1.1, 1 - Math.exp(-3.2 * dt));
+    camY = lerp(camY, reduceMotion ? 0 : -py * 0.5, 1 - Math.exp(-3.2 * dt));
+    camera.position.x = camX; camera.position.y = camY + 0.4;
+    camera.lookAt(camX * 0.4, camY * 0.3 + 0.6, -20);
+  }
 
   const k = 1 - Math.exp(-1.6 * dt);
   lerpColor(skyMat.uniforms.top.value, target.skyTop, k);
   lerpColor(skyMat.uniforms.bottom.value, target.skyBot, k);
   lerpColor(scene.fog.color, target.fog, k);
-  scene.fog.density = lerp(scene.fog.density, target.fogN, k);
+  scene.fog.density = lerp(scene.fog.density, worldMode ? WORLD_FOG : target.fogN, k);
   lerpColor(ridgeFar.material.color, target.far, k);
   lerpColor(ridgeMid.material.color, target.mid, k);
   lerpColor(ridgeNear.material.color, target.near, k);
@@ -418,7 +571,7 @@ function tick() {
     const r = ripples[i];
     r.t += dt;
     const s = 1 + r.t * 7;
-    r.m.scale.set(s, s * 0.3, 1);
+    if (r.sea) r.m.scale.set(s, s, 1); else r.m.scale.set(s, s * 0.3, 1);
     r.m.material.opacity = Math.max(0, 0.85 - r.t * 0.75);
     if (r.t > 1.2) { scene.remove(r.m); r.m.geometry.dispose(); ripples.splice(i, 1); }
   }

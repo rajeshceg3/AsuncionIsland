@@ -21,6 +21,12 @@
         "opacity": 0
       },
       {
+        "id": "sound",
+        "show": false,
+        "idle": true,
+        "opacity": 0
+      },
+      {
         "id": "dock",
         "show": false,
         "idle": true,
@@ -43,6 +49,12 @@
       {
         "id": "whisper",
         "show": true,
+        "idle": false,
+        "opacity": 1
+      },
+      {
+        "id": "sound",
+        "show": false,
         "idle": false,
         "opacity": 1
       },
@@ -76,6 +88,12 @@
         "opacity": 0
       },
       {
+        "id": "sound",
+        "show": false,
+        "idle": true,
+        "opacity": 0
+      },
+      {
         "id": "dock",
         "show": false,
         "idle": true,
@@ -98,6 +116,12 @@
       {
         "id": "whisper",
         "show": true,
+        "idle": false,
+        "opacity": 1
+      },
+      {
+        "id": "sound",
+        "show": false,
         "idle": false,
         "opacity": 1
       },

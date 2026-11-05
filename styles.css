@@ -124,3 +124,11 @@ body.night.bright-sky .wordmark-small { color: #2e2718; }
 /* Idle is the final visibility state, even while chapter copy is .show. */
 #caption.show.idle,
 #whisper.show.idle { opacity: 0; }
+
+/* the world itself is focusable so the view can be turned with the arrow keys */
+#island:focus-visible { outline: 1px solid color-mix(in srgb, var(--ink) 45%, transparent); outline-offset: -10px; border-radius: 18px; }
+
+#sound { position: fixed; top: max(1rem, env(safe-area-inset-top)); right: 3.4rem; z-index: 5; font: 500 0.78rem/1 "Cormorant Garamond", serif; letter-spacing: 0.12em; text-transform: uppercase; color: #f6eedd; background: rgba(34,28,24,0.58); border: 1px solid rgba(246,238,221,0.35); border-radius: 999px; padding: 0.55rem 0.9rem; min-height: 40px; backdrop-filter: blur(6px); cursor: pointer; }
+#sound[aria-pressed="true"] { background: rgba(34,28,24,0.78); border-color: rgba(246,238,221,0.6); }
+#sound:focus-visible { outline: 2px solid #f6eedd; outline-offset: 3px; }
+body:not(.in-shore) #sound { display: none; }
