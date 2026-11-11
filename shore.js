@@ -62,7 +62,7 @@ function lightShade(nx, ny, nz) {
 const lin = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
 const hex = (s) => { const n = parseInt(s.slice(1), 16); return [lin((n >> 16) / 255), lin(((n >> 8) & 255) / 255), lin((n & 255) / 255)]; };
 const C = {
-  wet: hex("#15120f"), sand1: hex("#26211e"), sand2: hex("#38312c"),
+  wet: hex("#252a29"), sand1: hex("#46413d"), sand2: hex("#635a51"),
   leaf1: hex("#4d6a3a"), leaf2: hex("#7b8a49"), ash: hex("#4b423b"), rock: hex("#4a3f38"), cap: hex("#7a6e63"), lava: hex("#2d2825"), rubble: hex("#443b35"),
 };
 function mix3(a, b, t) { return [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)]; }
@@ -111,7 +111,14 @@ function buildTerrain() {
     col[v * 3] = Math.min(1, c[0] * s); col[v * 3 + 1] = Math.min(1, c[1] * s); col[v * 3 + 2] = Math.min(1, c[2] * s);
   }
   geo.setAttribute("color", new THREE_.BufferAttribute(col, 3));
-  return new THREE_.Mesh(geo, new THREE_.MeshBasicMaterial({ vertexColors: true }));
+  const material = new THREE_.MeshBasicMaterial({ vertexColors: true });
+  material.onBeforeCompile = shader => {
+    shader.vertexShader = 'varying vec3 vGround;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvGround = position;');
+    shader.fragmentShader = 'varying vec3 vGround;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float grain = fract(sin(dot(floor(vGround.xz * 95.0),vec2(127.1,311.7))) * 43758.5453);
+      diffuseColor.rgb *= 0.86 + 0.28 * grain;`);
+  };
+  return new THREE_.Mesh(geo, material);
 }
 
 function bakeFlat(geo, rgb, rng, jitter = 0.08) {
@@ -213,6 +220,11 @@ export function createShoreWorld(THREE, { birdGeometry, birdMaterial, plumeMater
   /* lava rubble: boulders in clusters along the shore and up the slope. Size and density rise
      toward the headlands, so the near ground is not a bare slab. */
   const rocks = new THREE.Group();
+  const rockInstances = [[], [], [], []];
+  function placeRock(index, position, scale, rotation) {
+    const d = new THREE.Object3D(); d.position.copy(position); d.scale.copy(scale); d.rotation.y=rotation; d.updateMatrix();
+    rockInstances[index].push(d.matrix.clone());
+  }
   const rockGeos = [0, 1, 2, 3].map(() => rockGeometry(rng, 0.7 + rng() * 0.5));
   const rockMat = new THREE.MeshBasicMaterial({ vertexColors: true });
   const rubbleSpots = [];
@@ -229,9 +241,7 @@ export function createShoreWorld(THREE, { birdGeometry, birdMaterial, plumeMater
       if (z < shoreAt(x) + 0.4) continue;
       const big = rng() < 0.12 && near > 18 ? 2.4 : 1;
       const s = (0.3 + rng() * 1.1) * big;
-      const m = new THREE.Mesh(rockGeos[(rng() * 4) | 0], rockMat);
-      m.position.set(x, heightAt(x, z) + s * 0.18, z); m.scale.set(s * (1 + rng() * 0.6), s, s * (1 + rng() * 0.4)); m.rotation.y = rng() * 6.28;
-      rocks.add(m);
+      placeRock((rng() * 4) | 0, new THREE.Vector3(x, heightAt(x,z) + s*0.18, z), new THREE.Vector3(s*(1+rng()*0.6),s,s*(1+rng()*0.4)),rng()*6.28);
     }
   }
   /* big blocks that have fallen at the foot of each point */
@@ -239,12 +249,26 @@ export function createShoreWorld(THREE, { birdGeometry, birdMaterial, plumeMater
     for (let i = 0; i < 5; i++) {
       const x = px + (rng() - 0.5) * 18, z = pz + (rng() - 0.5) * 12, s = (1.2 + rng() * 2.4) * k;
       if (z < shoreAt(x) - 1) continue;
-      const m = new THREE.Mesh(rockGeos[(rng() * 4) | 0], rockMat);
-      m.position.set(x, heightAt(x, z) + s * 0.15, z); m.scale.set(s, s * 0.9, s); m.rotation.y = rng() * 6.28;
-      rocks.add(m);
+      placeRock((rng() * 4) | 0, new THREE.Vector3(x,heightAt(x,z)+s*0.15,z),new THREE.Vector3(s,s*0.9,s),rng()*6.28);
     }
   }
+  rockInstances.forEach((matrices,i)=> {
+    const batch = new THREE.InstancedMesh(rockGeos[i], rockMat, matrices.length);
+    matrices.forEach((m,j)=>batch.setMatrixAt(j,m)); batch.computeBoundingSphere(); rocks.add(batch);
+  });
   group.add(rocks);
+
+  // Broken basalt grains gathered just above the wash, each seated on the beach.
+  const grains=[];
+  for(let i=0;i<1600;i++) {
+    const x=(rng()-.5)*90,z=shoreAt(x)+1+rng()*28;
+    if(Math.hypot(x,z-2)<2)continue;
+    const scale=.035+rng()*.12;
+    const d=new THREE.Object3D();d.position.set(x,heightAt(x,z)+scale*.22,z);
+    d.scale.set(scale*(1+rng()),scale*.6,scale);d.rotation.set(rng(),rng()*6.28,rng());d.updateMatrix();grains.push(d.matrix.clone());
+  }
+  const pebbles=new THREE.InstancedMesh(rockGeos[0],rockMat,grains.length);
+  grains.forEach((m,i)=>pebbles.setMatrixAt(i,m));pebbles.computeBoundingSphere();group.add(pebbles);
 
   /* scrub and forest clumps: smooth, noise-shaped, shaded by height rather than by facet */
   const bushGeo = (() => {

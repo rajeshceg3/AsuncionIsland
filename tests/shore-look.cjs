@@ -1,7 +1,7 @@
 /* Behavioural check for the 3D shore: look-around, gesture scoping, keyboard, reduced motion.
    Run: PLAYWRIGHT_MODULE=<path to playwright-core> THREE_MODULE=<path to three.module.js> node tests/shore-look.cjs
    (THREE_MODULE is optional; without it the CDN import map is used.) */
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright-core');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const {spawn}=require('node:child_process');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
 const shotDir=process.env.SHOT_DIR||'/tmp';
 (async()=>{
@@ -14,6 +14,8 @@ const shotDir=process.env.SHOT_DIR||'/tmp';
    const height=width<500?844:800;
    const ctx=await browser.newContext({viewport:{width,height},reducedMotion:rm?'reduce':'no-preference',hasTouch:false});
    const page=await ctx.newPage();const errs=[];
+   // Scene-input coverage is pinned; chrome retirement has its own full gate.
+   await page.addInitScript(()=>localStorage.setItem('asuncion-chrome-pin','1'));
    page.on('pageerror',e=>errs.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/ERR_FAILED/.test(m.text()))errs.push(m.text())});
    if(three)await page.route('**/three.module.js',r=>r.fulfill({contentType:'text/javascript',body:three}));
    await page.route('**/fonts.g*/**',r=>r.abort());
@@ -33,7 +35,7 @@ const shotDir=process.env.SHOT_DIR||'/tmp';
    await page.mouse.click(width*0.5,height*0.15);await page.waitForTimeout(1500);const dock=await page.locator('#dock').boundingBox();const before=await view();
    await drag(dock.x+dock.width*0.2,dock.y+dock.height/2,dock.x+dock.width*0.2+30,dock.y+dock.height/2,6);await page.waitForTimeout(600);
    const afterDockDrag=await view();assert.equal(afterDockDrag.yaw,before.yaw,'drag that starts on the dock never turns the world');r.dockDragIgnored=true;
-   await page.focus('#island');const y1=(await view()).yaw;await page.keyboard.press('ArrowLeft');await page.waitForTimeout(600);const y2=(await view()).yaw;assert(y2>y1+0.1,'arrow key turns the focused world');
+   await page.focus('#island');const y1=(await view()).yaw;await page.keyboard.press('ArrowLeft');await page.waitForFunction(y=>+document.getElementById('island').dataset.yaw>y+0.1,y1);const y2=(await view()).yaw;assert(y2>y1+0.1,'arrow key turns the focused world');
    await page.keyboard.press('ArrowRight');await page.waitForTimeout(600);r.keyboard=true;
    await page.focus('.dot.active');const yk=(await view()).yaw;await page.keyboard.press('ArrowRight');await page.waitForFunction(()=>document.getElementById('island').dataset.yaw===undefined,null,{timeout:15000}).catch(()=>{});
    assert.equal((await view()).has,false,'arrows on the dock change the chapter, and the shore view is left');r.dockArrowsChangeChapter=true;

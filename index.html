@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+{ "imports": { "three": "./vendor/three.module.js" } }
 </script>
 </head>
 <body>
@@ -21,21 +21,35 @@
   <h1 class="wordmark">Asunción</h1>
 </div>
 
-<header id="masthead" class="chrome" aria-hidden="true">
+<header id="masthead" class="chrome chrome-top">
   <span class="wordmark-small">Asunción</span>
+  <button id="sound" class="rope-btn" aria-label="Turn environmental sound on" aria-pressed="false" title="Synthesized environmental illustration, not field recordings">Sound on</button>
+  <button id="pin-chrome" class="rope-btn" aria-pressed="false" aria-label="Keep controls showing">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.2 3.4 L12 8.4"/><path d="M8.4 8.8 Q12 7.4 15.8 8.9 Q16.4 13.6 12.1 15 Q7.7 13.6 8.4 8.8 Z"/><path d="M12 15 Q10.6 18 12.4 20.8"/></svg>
+    <span>Keep</span>
+  </button>
 </header>
 
-<p id="caption" class="chrome" role="status"></p>
-<p id="whisper" class="chrome"></p>
+<button id="chrome-hint" class="chrome-hint" aria-label="Show controls">
+  <svg viewBox="0 0 44 52" aria-hidden="true"><path d="M22 3 L22.4 12"/><path d="M13 13 Q22 10 31.4 13.2 Q33.6 27 22.2 31 Q10.8 27.2 13 13 Z"/><path d="M15 21 L30 21.6"/><path d="M16 40 Q22 37 28.6 40.2"/><path d="M9 47 Q15 44 22 47 Q29 50 35.4 46.6"/></svg>
+</button>
 
-<button id="sound" class="chrome" type="button" aria-pressed="false" aria-label="Shore sound: off. Turn on">Sound off</button>
+<p id="caption" role="status"></p>
+<p id="whisper"></p>
 
-<nav id="dock" class="chrome" aria-label="Faces of the island">
-  <button class="dot" data-scene="0" aria-label="The volcano at dawn"><i></i><span>Volcano</span></button>
-  <button class="dot" data-scene="1" aria-label="The jungle slopes"><i></i><span>Jungle</span></button>
-  <button class="dot" data-scene="2" aria-label="The black-sand shore"><i></i><span>Shore</span></button>
-  <button class="dot" data-scene="3" aria-label="The seabird colony at night"><i></i><span>Wings</span></button>
-</nav>
+<div id="dock" class="chrome chrome-bottom">
+  <nav id="faces" aria-label="Faces of the island">
+    <svg class="rope" viewBox="0 0 320 30" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 Q80 26 160 14 T318 10"/></svg>
+    <button class="dot" data-scene="0" aria-label="The volcano at dawn"><i></i><span>Volcano</span></button>
+    <button class="dot" data-scene="1" aria-label="The jungle slopes"><i></i><span>Jungle</span></button>
+    <button class="dot" data-scene="2" aria-label="The black-sand shore"><i></i><span>Shore</span></button>
+    <button class="dot" data-scene="3" aria-label="The seabird colony at night"><i></i><span>Wings</span></button>
+  </nav>
+  <button id="next-face" class="drift-btn" aria-label="Drift on to the next face of the island">
+    <svg viewBox="0 0 28 20" aria-hidden="true"><path d="M2 14 Q8 8 14 13 T26 11"/><path d="M20 5 L26.4 11 L19.6 16"/></svg>
+    <span>Drift on</span>
+  </button>
+</div>
 
 <script type="module" src="main.js"></script>
 </body>

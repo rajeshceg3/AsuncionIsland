@@ -1,6 +1,7 @@
+import {createSoundscape} from './soundscape.js';
+import {SOUND_PLACES} from './sound-places.js';
 import * as THREE from "three";
 import { createShoreWorld, shoreAt } from "./shore.js";
-import { createShoreAudio } from "./shore-audio.js";
 
 /* ---------- tiny spring tween ---------- */
 const springs = [];
@@ -57,7 +58,7 @@ const skyMat = new THREE.ShaderMaterial({
   depthWrite: false,
   uniforms: { top: { value: new THREE.Color("#ffedd2") }, bottom: { value: new THREE.Color("#f6d3a3") }, uWorld: { value: 0 }, uHorizon: { value: 0.5 } },
   vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.9999, 1.0); }",
-  fragmentShader: "uniform vec3 top; uniform vec3 bottom; uniform float uWorld; uniform float uHorizon; varying vec2 vUv; void main(){ float flat_ = smoothstep(0.15, 0.85, vUv.y); float world_ = smoothstep(0.0, 0.62, vUv.y - uHorizon); gl_FragColor = vec4(mix(bottom, top, mix(flat_, world_, uWorld)), 1.0); }",
+  fragmentShader: "uniform vec3 top; uniform vec3 bottom; uniform float uWorld; uniform float uHorizon; varying vec2 vUv; void main(){ float flat_ = smoothstep(0.15, 0.85, vUv.y); float world_ = smoothstep(0.0, 0.62, vUv.y - uHorizon); gl_FragColor = vec4(mix(bottom, top, mix(flat_, world_, uWorld)), 1.0); gl_FragColor = mix(gl_FragColor, linearToOutputTexel(gl_FragColor), uWorld); }",
 });
 const sky = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), skyMat);
 sky.frustumCulled = false; sky.renderOrder = -10;
@@ -246,7 +247,6 @@ const look = { yaw: 0, pitch: 0.02, vel: 0 };
 const PITCH_UP = 0.32, PITCH_DOWN = -0.26;   // Windermere allows a longer look up than down; the caption must stay over ground
 function applyMode(on) {
   worldMode = on;
-  shoreAudio.setActive(on);
   flatObjs.forEach((o) => { o.visible = !on; });
   shore.group.visible = on;
   skyMat.uniforms.uWorld.value = on ? 1 : 0;
@@ -261,19 +261,6 @@ function applyMode(on) {
   resize();
 }
 
-/* ---------- shore sound: off until asked, only heard on the shore ---------- */
-const shoreAudio = createShoreAudio();
-const soundBtn = document.getElementById("sound");
-soundBtn.addEventListener("click", async () => {
-  const want = soundBtn.getAttribute("aria-pressed") !== "true";
-  const ok = await shoreAudio.setEnabled(want);
-  soundBtn.setAttribute("aria-pressed", String(ok));
-  soundBtn.textContent = ok ? "Sound on" : "Sound off";
-  soundBtn.setAttribute("aria-label", ok ? "Shore sound: on. Turn off" : "Shore sound: off. Turn on");
-  wakeChrome();
-});
-document.addEventListener("visibilitychange", () => { shoreAudio.setActive(!document.hidden && worldMode); });
-window.__shoreAudio = shoreAudio;   // test hook
 /* ---------- chapters ---------- */
 const CHAPTERS = [
   { skyTop: "#ffedd2", skyBot: "#f6d3a3", fog: ["#f6d3a3", 0.014], far: "#9a8874", mid: "#7a6a56", near: "#5f5346",
@@ -294,6 +281,8 @@ const CHAPTERS = [
     caption: "Ten thousand wings own the night.", whisper: "No keeper for three hundred years." },
 ];
 let chapter = 0;
+const ambience=createSoundscape(SOUND_PLACES);window.islandSound=ambience;
+const soundButton=document.getElementById('sound');soundButton.onclick=()=>{const on=ambience.toggle(chapter);soundButton.textContent=on?'Sound off':'Sound on';soundButton.setAttribute('aria-pressed',String(on));soundButton.setAttribute('aria-label',on?'Turn environmental sound off':'Turn environmental sound on');wakeChrome()};
 const target = {
   skyTop: new THREE.Color(CHAPTERS[0].skyTop), skyBot: new THREE.Color(CHAPTERS[0].skyBot),
   fog: new THREE.Color(CHAPTERS[0].fog[0]), far: new THREE.Color(CHAPTERS[0].far),
@@ -307,18 +296,51 @@ const target = {
 const veil = document.getElementById("veil");
 const caption = document.getElementById("caption");
 const whisper = document.getElementById("whisper");
-const chrome = [...document.querySelectorAll(".chrome")];
 const dots = [...document.querySelectorAll(".dot")];
 let idleTimer, whisperTimer, shoreCueTimer, shoreCueFirst;
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-function wakeChrome() {
-  chrome.forEach((c) => c.classList.remove("idle"));
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => chrome.forEach((c) => c.classList.add("idle")), 4200);
+const GREET = 2600;
+const chromeUI = [document.getElementById("masthead"), document.getElementById("dock")];
+const pinBtn = document.getElementById("pin-chrome");
+const hintBtn = document.getElementById("chrome-hint");
+let chromePinned = false, chromeZone = false;
+try { chromePinned = localStorage.getItem("asuncion-chrome-pin") === "1"; } catch (_) {}
+const chromeHeld = () => chromeZone || chromeUI.some((el) => el.matches(":focus-within") || el.matches(":hover"));
+function blurInChrome() { const a = document.activeElement; if (a && chromeUI.some((el) => el.contains(a))) a.blur(); }
+function retireChrome() {
+  if (chromePinned) return;
+  if (chromeHeld()) { idleTimer = setTimeout(retireChrome, GREET); return; }
+  document.body.classList.remove("chrome-on"); blurInChrome();
 }
+function wakeChrome() {
+  clearTimeout(idleTimer);
+  document.body.classList.add("chrome-on");
+  if (!chromePinned) idleTimer = setTimeout(retireChrome, GREET);
+}
+function setChromePin(v) {
+  chromePinned = v; pinBtn.setAttribute("aria-pressed", String(v));
+  try { localStorage.setItem("asuncion-chrome-pin", v ? "1" : "0"); } catch (_) {}
+  if (v) { clearTimeout(idleTimer); document.body.classList.add("chrome-on"); } else wakeChrome();
+}
+pinBtn.addEventListener("click", () => setChromePin(!chromePinned));
+pinBtn.setAttribute("aria-pressed", String(chromePinned));
+hintBtn.addEventListener("click", () => { wakeChrome(); pinBtn.focus({ preventScroll: true }); });
+addEventListener("pointermove", (e) => {
+  if (e.pointerType === "touch") return;
+  chromeZone = e.clientY < 96 || e.clientY > innerHeight - 150;
+  if (chromeZone) wakeChrome();
+});
+document.addEventListener("pointerleave", () => { chromeZone = false; });
+addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !chromePinned) { chromeZone = false; clearTimeout(idleTimer); document.body.classList.remove("chrome-on"); blurInChrome(); }
+  else if (e.key === "Tab") wakeChrome();
+});
+chromeUI.forEach((el) => el.addEventListener("pointerdown", () => { if (!chromePinned) wakeChrome(); }));
+document.body.classList.add("chrome-on");
+document.getElementById("next-face").addEventListener("click", () => setChapter((chapter + 1) % CHAPTERS.length));
 function setChapter(i) {
   if (i === chapter) return;
-  chapter = i;
+  chapter = i; ambience.setPlace(i);
   const c = CHAPTERS[i];
   target.skyTop.set(c.skyTop); target.skyBot.set(c.skyBot); target.fog.set(c.fog[0]);
   target.far.set(c.far); target.mid.set(c.mid); target.near.set(c.near);
@@ -403,7 +425,7 @@ let dockPointer = null;
 let lookPointer = null, lookX = 0, lookY = 0, lookT = 0;
 const lookRay = new THREE.Raycaster();
 addEventListener("pointerdown", (e) => {
-  dragging = true; moved = 0; downX = e.clientX; downY = e.clientY; wakeChrome();
+  dragging = true; moved = 0; downX = e.clientX; downY = e.clientY;
   dockPointer = e.target.closest && e.target.closest("#dock") ? e.pointerId : null;
   if (worldMode && dockPointer === null && lookPointer === null) {
     lookPointer = e.pointerId; lookX = e.clientX; lookY = e.clientY; lookT = performance.now(); look.vel = 0;
@@ -492,7 +514,7 @@ function tick() {
       look.vel *= Math.exp(-3.6 * dt);
       if (Math.abs(look.vel) < 0.002) look.vel = 0;
     }
-    camera.rotation.set(look.pitch, look.yaw, 0);
+    camera.rotation.set(look.pitch, look.yaw - 0.72, 0);
     const horizon = 0.5 - 0.5 * Math.tan(look.pitch) / Math.tan(camera.fov * Math.PI / 360);
     skyMat.uniforms.uHorizon.value = horizon;
     const u0 = performance.now();
