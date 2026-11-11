@@ -27,13 +27,16 @@ Local Chromium, not a physical phone:
 - Volcano at 390x844 and 1365x844: four directions, full turn, pointer input,
   reduced-motion pixel stability, transfer to Shore and back, flat-chapter exit,
   and zero page errors: pass.
-- Existing Shore reduced-motion 390 cell: pass.
+- Existing Shore all four cells (390/1365, reduced/full motion): pass.
 - Existing chrome gate independently at widths 390 and 1365: pass.
 
 - Existing audio structure/browser gate: pass (structure only, not listened to).
 
-The remaining Shore matrix cells are still outstanding.
-CI results must be read separately; local results do not imply a green run.
+Full-motion Volcano at 390 and 1365 also passes full turn, pointer input,
+chapter transfer and exit without page errors. Pixel stability is only asserted
+for reduced motion.
+Initial head f57c075 passed CI. Subsequent test-only changes need their own
+CI result; local results do not imply a green run.
 The reduced-motion environment interpolation now snaps rather than leaving
 persistent subpixel drift. This does not change the default motion preference.
 
