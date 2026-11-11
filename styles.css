@@ -203,3 +203,5 @@ body.chrome-on .chrome-hint { visibility: hidden; animation: none; }
 @keyframes hint-sway { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(4px); } }
 @media (min-width: 760px) { #dock { width: 460px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+#masthead #sound{min-width:94px;font-size:16px;padding:6px 8px;color:var(--ink);background:var(--paper)}
