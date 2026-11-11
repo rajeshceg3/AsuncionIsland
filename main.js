@@ -1,3 +1,5 @@
+import {createSoundscape} from './soundscape.js';
+import {SOUND_PLACES} from './sound-places.js';
 import * as THREE from "three";
 
 /* ---------- tiny spring tween ---------- */
@@ -222,6 +224,8 @@ const CHAPTERS = [
     caption: "Ten thousand wings own the night.", whisper: "No keeper for three hundred years." },
 ];
 let chapter = 0;
+const ambience=createSoundscape(SOUND_PLACES);window.islandSound=ambience;
+const soundButton=document.getElementById('sound');soundButton.onclick=()=>{const on=ambience.toggle(chapter);soundButton.textContent=on?'Sound off':'Sound on';soundButton.setAttribute('aria-pressed',String(on));soundButton.setAttribute('aria-label',on?'Turn environmental sound off':'Turn environmental sound on');wakeChrome()};
 const target = {
   skyTop: new THREE.Color(CHAPTERS[0].skyTop), skyBot: new THREE.Color(CHAPTERS[0].skyBot),
   fog: new THREE.Color(CHAPTERS[0].fog[0]), far: new THREE.Color(CHAPTERS[0].far),
@@ -279,7 +283,7 @@ document.body.classList.add("chrome-on");
 document.getElementById("next-face").addEventListener("click", () => setChapter((chapter + 1) % CHAPTERS.length));
 function setChapter(i) {
   if (i === chapter) return;
-  chapter = i;
+  chapter = i; ambience.setPlace(i);
   const c = CHAPTERS[i];
   target.skyTop.set(c.skyTop); target.skyBot.set(c.skyBot); target.fog.set(c.fog[0]);
   target.far.set(c.far); target.mid.set(c.mid); target.near.set(c.near);
