@@ -258,7 +258,7 @@ function applyMode(index) {
   camera.rotation.set(0, 0, 0);
   if (on) {
     look.yaw = 0; look.pitch = 0.02; look.vel = 0;
-    if(index===0){look.pitch=.18;camera.position.set(0,volcanoWorld.heightAt(0,300)+1.7,300);}
+    if(index===0){look.pitch=.12;camera.position.set(110,6,350);}
     else camera.position.set(0, shore.heightAt(0, 2) + 1.7, 2);
   } else {
     camera.position.set(0, 0, 0);
@@ -519,7 +519,7 @@ function tick() {
       look.vel *= Math.exp(-3.6 * dt);
       if (Math.abs(look.vel) < 0.002) look.vel = 0;
     }
-    camera.rotation.set(look.pitch, look.yaw - (worldChapter===0?0:0.72), 0);
+    camera.rotation.set(look.pitch, look.yaw - (worldChapter===0?-.305:0.72), 0);
     const horizon = 0.5 - 0.5 * Math.tan(look.pitch) / Math.tan(camera.fov * Math.PI / 360);
     skyMat.uniforms.uHorizon.value = horizon;
     const u0 = performance.now();

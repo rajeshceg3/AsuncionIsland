@@ -45,3 +45,20 @@ persistent subpixel drift. This does not change the default motion preference.
 The first entry view establishes the cone but the other directions are sparse.
 Ground, rock treatment, scale and camera composition need another pass. This
 study is not accepted art and must not be presented as a finished release.
+
+## Overnight composition pass, November 12
+
+The entry camera now sits offshore at an illustrative oblique viewpoint. The
+shoreline and water occupy the foreground rather than an undifferentiated ash
+apron. The cone has a more uneven base and multiscale relief, a cooler ash
+palette and a static fine sea pattern. The sea remains still under reduced
+motion. This is art direction, not a reconstruction or a surveyed camera site.
+
+Terrain checks and all four Volcano width/motion cells pass locally after this
+pass; the 390 chrome regression also passes. The prior full Shore/audio matrix
+was green at ff90d24. The new head still needs its own complete CI run.
+
+The scene is still simplified and does not meet a photographic terrain bar.
+Side and rear views are mostly ocean by design from this offshore position;
+there is continuous geometry, not a hidden void. No new scenery or distant
+island has been invented to fill those views.
