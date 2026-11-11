@@ -13,3 +13,30 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:audio
+
+  spatial:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: ['390', '1365', 'rm-390', 'rm-1365']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node tests/shore-look.cjs
+        env:
+          ONLY: ${{ matrix.cell }}
+  chrome:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test

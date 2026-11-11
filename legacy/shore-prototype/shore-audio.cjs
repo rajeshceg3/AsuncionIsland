@@ -1,0 +1,16 @@
+const {chromium}=require(''+(process.env.PLAYWRIGHT_MODULE||'/tmp/pw/node_modules/playwright-core')+'');const {spawn}=require('child_process');
+(async()=>{const srv=spawn('python3',['-m','http.server','4230','--bind','127.0.0.1'],{cwd:'/tmp/AsuncionIsland',stdio:'ignore'});await new Promise(r=>setTimeout(r,500));
+const b=await chromium.launch({headless:true,executablePath:'/usr/bin/google-chrome',args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--autoplay-policy=user-gesture-required']});
+const p=await (await b.newContext({viewport:{width:390,height:844}})).newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));p.on('console',m=>m.type()==='error'&&errs.push(m.text()));
+await p.route('**/three.module.js',r=>r.fulfill({contentType:'text/javascript',body:require('fs').readFileSync('/tmp/pw/node_modules/three/build/three.module.js','utf8')}));
+await p.goto('http://127.0.0.1:4230');await p.waitForSelector('#veil.gone');
+const vis=()=>p.evaluate(()=>({disp:getComputedStyle(document.getElementById('sound')).display,state:window.__shoreAudio.state,gain:+window.__shoreAudio.gain.toFixed(3),pressed:document.getElementById('sound').getAttribute('aria-pressed'),txt:document.getElementById('sound').textContent}));
+console.log('flat chapter',JSON.stringify(await vis()));
+await p.evaluate(()=>document.querySelectorAll('.dot')[2].click());await p.waitForTimeout(5000);
+console.log('shore, before opt-in',JSON.stringify(await vis()));
+await p.evaluate(()=>document.getElementById('sound').click());await p.waitForTimeout(4000);
+console.log('after click',JSON.stringify(await vis()));
+await p.evaluate(()=>document.querySelectorAll('.dot')[0].click());await p.waitForTimeout(6000);
+console.log('left shore',JSON.stringify(await vis()));
+console.log('measure',JSON.stringify(await p.evaluate(async()=>{const m=await window.__shoreAudio.measure(24);return {peak:+m.peak.toFixed(3),nan:m.nan,rmsMin:+m.rmsMin.toFixed(4),rmsMax:+m.rmsMax.toFixed(4),swellRatio:+(m.rmsMax/m.rmsMin).toFixed(2)}})));
+console.log('errors',JSON.stringify(errs));await b.close();srv.kill()})();

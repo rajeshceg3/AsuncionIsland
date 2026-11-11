@@ -205,3 +205,5 @@ body.chrome-on .chrome-hint { visibility: hidden; animation: none; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 
 #masthead #sound{min-width:94px;font-size:16px;padding:6px 8px;color:var(--ink);background:var(--paper)}
+
+#island:focus-visible { outline: 2px solid var(--ink); outline-offset: -10px; }
