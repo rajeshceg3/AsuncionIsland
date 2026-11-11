@@ -235,15 +235,48 @@ const target = {
 const veil = document.getElementById("veil");
 const caption = document.getElementById("caption");
 const whisper = document.getElementById("whisper");
-const chrome = [...document.querySelectorAll(".chrome")];
 const dots = [...document.querySelectorAll(".dot")];
 let idleTimer, whisperTimer, shoreCueTimer, shoreCueFirst;
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-function wakeChrome() {
-  chrome.forEach((c) => c.classList.remove("idle"));
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => chrome.forEach((c) => c.classList.add("idle")), 4200);
+const GREET = 2600;
+const chromeUI = [document.getElementById("masthead"), document.getElementById("dock")];
+const pinBtn = document.getElementById("pin-chrome");
+const hintBtn = document.getElementById("chrome-hint");
+let chromePinned = false, chromeZone = false;
+try { chromePinned = localStorage.getItem("asuncion-chrome-pin") === "1"; } catch (_) {}
+const chromeHeld = () => chromeZone || chromeUI.some((el) => el.matches(":focus-within") || el.matches(":hover"));
+function blurInChrome() { const a = document.activeElement; if (a && chromeUI.some((el) => el.contains(a))) a.blur(); }
+function retireChrome() {
+  if (chromePinned) return;
+  if (chromeHeld()) { idleTimer = setTimeout(retireChrome, GREET); return; }
+  document.body.classList.remove("chrome-on"); blurInChrome();
 }
+function wakeChrome() {
+  clearTimeout(idleTimer);
+  document.body.classList.add("chrome-on");
+  if (!chromePinned) idleTimer = setTimeout(retireChrome, GREET);
+}
+function setChromePin(v) {
+  chromePinned = v; pinBtn.setAttribute("aria-pressed", String(v));
+  try { localStorage.setItem("asuncion-chrome-pin", v ? "1" : "0"); } catch (_) {}
+  if (v) { clearTimeout(idleTimer); document.body.classList.add("chrome-on"); } else wakeChrome();
+}
+pinBtn.addEventListener("click", () => setChromePin(!chromePinned));
+pinBtn.setAttribute("aria-pressed", String(chromePinned));
+hintBtn.addEventListener("click", () => { wakeChrome(); pinBtn.focus({ preventScroll: true }); });
+addEventListener("pointermove", (e) => {
+  if (e.pointerType === "touch") return;
+  chromeZone = e.clientY < 96 || e.clientY > innerHeight - 150;
+  if (chromeZone) wakeChrome();
+});
+document.addEventListener("pointerleave", () => { chromeZone = false; });
+addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !chromePinned) { chromeZone = false; clearTimeout(idleTimer); document.body.classList.remove("chrome-on"); blurInChrome(); }
+  else if (e.key === "Tab") wakeChrome();
+});
+chromeUI.forEach((el) => el.addEventListener("pointerdown", () => { if (!chromePinned) wakeChrome(); }));
+document.body.classList.add("chrome-on");
+document.getElementById("next-face").addEventListener("click", () => setChapter((chapter + 1) % CHAPTERS.length));
 function setChapter(i) {
   if (i === chapter) return;
   chapter = i;
@@ -320,7 +353,7 @@ dock.addEventListener("keydown", (e) => {
 let px = 0, py = 0, dragging = false, moved = 0, downX = 0, downY = 0;
 let dockPointer = null;
 addEventListener("pointerdown", (e) => {
-  dragging = true; moved = 0; downX = e.clientX; downY = e.clientY; wakeChrome();
+  dragging = true; moved = 0; downX = e.clientX; downY = e.clientY;
   dockPointer = e.target.closest && e.target.closest("#dock") ? e.pointerId : null;
 });
 addEventListener("pointermove", (e) => {
