@@ -2,6 +2,7 @@ import {createSoundscape} from './soundscape.js';
 import {SOUND_PLACES} from './sound-places.js';
 import * as THREE from "three";
 import { createShoreWorld, shoreAt } from "./shore.js";
+import { createVolcanoWorld } from "./volcano.js";
 
 /* ---------- tiny spring tween ---------- */
 const springs = [];
@@ -50,7 +51,7 @@ function applyCameraMode() {
   }
   camera.updateProjectionMatrix();
 }
-let worldMode = false;
+let worldMode = false, worldChapter = -1;
 addEventListener("resize", resize); resize();
 
 /* ---------- sky ---------- */
@@ -232,6 +233,7 @@ const shore = createShoreWorld(THREE, {
   plumeMaterial: () => new THREE.MeshBasicMaterial({ color: "#fff4e2", transparent: true, opacity: 0, depthWrite: false }),
 });
 scene.add(shore.group);
+const volcanoWorld = createVolcanoWorld(THREE);scene.add(volcanoWorld.group);
 const mistMat = new THREE.ShaderMaterial({
   transparent: true, depthTest: false, depthWrite: false,
   uniforms: { color: { value: new THREE.Color("#cfe7e4") }, o: { value: 0 } },
@@ -245,16 +247,19 @@ let mistTarget = 0;
 /* view state for look-around: unbounded azimuth, shallow pitch */
 const look = { yaw: 0, pitch: 0.02, vel: 0 };
 const PITCH_UP = 0.32, PITCH_DOWN = -0.26;   // Windermere allows a longer look up than down; the caption must stay over ground
-function applyMode(on) {
-  worldMode = on;
+function applyMode(index) {
+  const on = index === 0 || index === WORLD_CHAPTER;
+  worldChapter = index;worldMode = on;
   flatObjs.forEach((o) => { o.visible = !on; });
-  shore.group.visible = on;
+  shore.group.visible = index === WORLD_CHAPTER;
+  volcanoWorld.group.visible = index === 0;
   skyMat.uniforms.uWorld.value = on ? 1 : 0;
   camera.rotation.order = on ? "YXZ" : "XYZ";
   camera.rotation.set(0, 0, 0);
   if (on) {
     look.yaw = 0; look.pitch = 0.02; look.vel = 0;
-    camera.position.set(0, shore.heightAt(0, 2) + 1.7, 2);
+    if(index===0){look.pitch=.12;camera.position.set(110,6,350);}
+    else camera.position.set(0, shore.heightAt(0, 2) + 1.7, 2);
   } else {
     camera.position.set(0, 0, 0);
   }
@@ -501,11 +506,11 @@ function tick() {
   const tA = reduceMotion ? 0 : t;
 
   /* leaving or entering the shore crosses a wash of mist, so the camera never jumps in view */
-  const wantWorld = chapter === WORLD_CHAPTER;
-  mistTarget = wantWorld !== worldMode ? 1 : 0;
+  const wantChapter = chapter===0 || chapter===WORLD_CHAPTER ? chapter : -1;
+  mistTarget = wantChapter !== worldChapter ? 1 : 0;
   mistMat.uniforms.o.value = lerp(mistMat.uniforms.o.value, mistTarget, 1 - Math.exp(-(reduceMotion ? 14 : 7) * Math.min(rawDt, 0.4)));  // wall-clock, so a slow frame rate cannot stretch the wash
   mistMat.uniforms.color.value.copy(scene.fog.color);
-  if (mistTarget === 1 && mistMat.uniforms.o.value > 0.97) applyMode(wantWorld);
+  if (mistTarget === 1 && mistMat.uniforms.o.value > 0.97) applyMode(wantChapter);
   canvas.dataset.mist = mistMat.uniforms.o.value.toFixed(2);
 
   if (worldMode) {
@@ -514,27 +519,27 @@ function tick() {
       look.vel *= Math.exp(-3.6 * dt);
       if (Math.abs(look.vel) < 0.002) look.vel = 0;
     }
-    camera.rotation.set(look.pitch, look.yaw - 0.72, 0);
+    camera.rotation.set(look.pitch, look.yaw - (worldChapter===0?-.305:0.72), 0);
     const horizon = 0.5 - 0.5 * Math.tan(look.pitch) / Math.tan(camera.fov * Math.PI / 360);
     skyMat.uniforms.uHorizon.value = horizon;
     const u0 = performance.now();
-    shore.update(tA, camera);
+    if(worldChapter===WORLD_CHAPTER)shore.update(tA, camera);else volcanoWorld.update(tA,camera);
     updMs = updMs * 0.95 + (performance.now() - u0) * 0.05;
     canvas.dataset.updateMs = updMs.toFixed(3);
-    canvas.dataset.yaw = look.yaw.toFixed(3); canvas.dataset.pitch = look.pitch.toFixed(3);
+    canvas.dataset.world = String(worldChapter);canvas.dataset.yaw = look.yaw.toFixed(3); canvas.dataset.pitch = look.pitch.toFixed(3);
   } else {
-    delete canvas.dataset.yaw; delete canvas.dataset.pitch;
+    delete canvas.dataset.world;delete canvas.dataset.yaw; delete canvas.dataset.pitch;
     camX = lerp(camX, reduceMotion ? 0 : px * 1.1, 1 - Math.exp(-3.2 * dt));
     camY = lerp(camY, reduceMotion ? 0 : -py * 0.5, 1 - Math.exp(-3.2 * dt));
     camera.position.x = camX; camera.position.y = camY + 0.4;
     camera.lookAt(camX * 0.4, camY * 0.3 + 0.6, -20);
   }
 
-  const k = 1 - Math.exp(-1.6 * dt);
+  const k = reduceMotion ? 1 : 1 - Math.exp(-1.6 * dt);
   lerpColor(skyMat.uniforms.top.value, target.skyTop, k);
   lerpColor(skyMat.uniforms.bottom.value, target.skyBot, k);
   lerpColor(scene.fog.color, target.fog, k);
-  scene.fog.density = lerp(scene.fog.density, worldMode ? WORLD_FOG : target.fogN, k);
+  scene.fog.density = lerp(scene.fog.density, worldMode ? (worldChapter===0?.0018:WORLD_FOG) : target.fogN, k);
   lerpColor(ridgeFar.material.color, target.far, k);
   lerpColor(ridgeMid.material.color, target.mid, k);
   lerpColor(ridgeNear.material.color, target.near, k);

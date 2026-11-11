@@ -40,3 +40,23 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+
+  volcano:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        width: ['390', '1365']
+        motion: ['reduced', 'full']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node tests/volcano-terrain.mjs
+      - run: node tests/volcano-look.cjs
+        env:
+          WIDTH: ${{ matrix.width }}
+          MOTION: ${{ matrix.motion }}
